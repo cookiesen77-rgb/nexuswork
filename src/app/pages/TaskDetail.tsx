@@ -1,0 +1,1363 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { useLocation, useParams } from 'react-router-dom';
+import {
+  getAllTasks,
+  getFilesByTaskId,
+  updateTask,
+  type LibraryFile,
+  type Task,
+} from '@/shared/db';
+import { useAgent, type AgentMessage } from '@/shared/hooks/useAgent';
+import { useVitePreview } from '@/shared/hooks/useVitePreview';
+import { cn } from '@/shared/lib/utils';
+import {
+  CheckCircle2,
+  ChevronDown,
+  PanelLeft,
+  Plus,
+  Send,
+  Square,
+} from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+
+import { Logo } from '@/components/common/logo';
+import { LeftSidebar, SidebarProvider, useSidebar } from '@/components/layout';
+import { ArtifactPreview } from '@/components/task/ArtifactPreview';
+import { PlanApproval } from '@/components/task/PlanApproval';
+import { QuestionInput } from '@/components/task/QuestionInput';
+import { RightSidebar, type Artifact } from '@/components/task/RightSidebar';
+import { ToolExecutionItem } from '@/components/task/ToolExecutionItem';
+
+interface LocationState {
+  prompt?: string;
+  sessionId?: string;
+  taskIndex?: number;
+}
+
+// Context for tool selection - allows child components to select tools
+interface ToolSelectionContextType {
+  selectedToolIndex: number | null;
+  setSelectedToolIndex: (index: number | null) => void;
+  showComputer: () => void;
+}
+
+const ToolSelectionContext = createContext<ToolSelectionContextType | null>(
+  null
+);
+
+export function useToolSelection() {
+  const context = useContext(ToolSelectionContext);
+  if (!context) {
+    throw new Error(
+      'useToolSelection must be used within ToolSelectionContext'
+    );
+  }
+  return context;
+}
+
+export function TaskDetailPage() {
+  return (
+    <SidebarProvider>
+      <TaskDetailContent />
+    </SidebarProvider>
+  );
+}
+
+function TaskDetailContent() {
+  const { taskId } = useParams();
+  const location = useLocation();
+  const state = location.state as LocationState | null;
+  const initialPrompt = state?.prompt || '';
+  const initialSessionId = state?.sessionId;
+  const initialTaskIndex = state?.taskIndex || 1;
+
+  const {
+    messages,
+    isRunning,
+    runAgent,
+    continueConversation,
+    stopAgent,
+    loadTask,
+    loadMessages,
+    clearMessages,
+    phase,
+    plan: _plan,
+    approvePlan,
+    rejectPlan,
+    pendingQuestion,
+    respondToQuestion,
+    sessionFolder,
+  } = useAgent();
+  const { toggleLeft, setLeftOpen } = useSidebar();
+  const [replyValue, setReplyValue] = useState('');
+  const [hasStarted, setHasStarted] = useState(false);
+  const isInitializingRef = useRef(false); // Prevent double initialization in Strict Mode
+  const [task, setTask] = useState<Task | null>(null);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const prevTaskIdRef = useRef<string | undefined>(undefined);
+  const isComposingRef = useRef(false); // Track IME composition state
+
+  // Auto-collapse left sidebar on task detail page
+  useEffect(() => {
+    setLeftOpen(false);
+    return () => {
+      // Optionally restore on unmount if needed
+      // setLeftOpen(true);
+    };
+  }, [setLeftOpen]);
+
+  // Panel visibility state
+  const [isRightSidebarVisible, setIsRightSidebarVisible] = useState(true);
+  const [isPreviewVisible, setIsPreviewVisible] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Artifact state
+  const [artifacts, setArtifacts] = useState<Artifact[]>([]);
+  const [selectedArtifact, setSelectedArtifact] = useState<Artifact | null>(
+    null
+  );
+
+  // Working directory state - use sessionFolder (show full session directory tree)
+  // Only depend on sessionFolder and artifacts, not messages (to avoid frequent recalculations)
+  const workingDir = useMemo(() => {
+    // Use sessionFolder from useAgent if available
+    if (sessionFolder) {
+      return sessionFolder;
+    }
+
+    // Try to extract session directory from artifact paths
+    for (const artifact of artifacts) {
+      if (artifact.path && artifact.path.includes('/sessions/')) {
+        const sessionMatch = artifact.path.match(/^(.+\/sessions\/[^/]+)/);
+        if (sessionMatch) {
+          return sessionMatch[1];
+        }
+      }
+    }
+
+    return '';
+  }, [sessionFolder, artifacts]);
+
+  // Live preview state
+  const {
+    previewUrl: livePreviewUrl,
+    status: livePreviewStatus,
+    error: livePreviewError,
+    startPreview,
+    stopPreview,
+  } = useVitePreview(taskId || null);
+
+  // Handle starting live preview
+  const handleStartLivePreview = useCallback(() => {
+    if (workingDir) {
+      console.log(
+        '[TaskDetail] Starting live preview with workingDir:',
+        workingDir
+      );
+      startPreview(workingDir);
+    } else {
+      console.warn('[TaskDetail] Cannot start live preview: no workingDir');
+    }
+  }, [workingDir, startPreview]);
+
+  // Handle stopping live preview
+  const handleStopLivePreview = useCallback(() => {
+    console.log('[TaskDetail] Stopping live preview');
+    stopPreview();
+  }, [stopPreview]);
+
+  // Tool search
+  const [toolSearchQuery] = useState('');
+
+  // Title editing state
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  // Handle title click to start editing
+  const handleTitleClick = useCallback(() => {
+    const currentTitle = task?.prompt || initialPrompt;
+    setEditedTitle(currentTitle);
+    setIsEditingTitle(true);
+  }, [task?.prompt, initialPrompt]);
+
+  // Handle title save
+  const handleTitleSave = useCallback(async () => {
+    if (!taskId || !editedTitle.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+
+    const trimmedTitle = editedTitle.trim();
+    if (trimmedTitle !== (task?.prompt || initialPrompt)) {
+      try {
+        const updatedTask = await updateTask(taskId, { prompt: trimmedTitle });
+        if (updatedTask) {
+          setTask(updatedTask);
+          // Refresh all tasks to update sidebar
+          const tasks = await getAllTasks();
+          setAllTasks(tasks);
+        }
+      } catch (error) {
+        console.error('Failed to update task title:', error);
+      }
+    }
+    setIsEditingTitle(false);
+  }, [taskId, editedTitle, task?.prompt, initialPrompt]);
+
+  // Handle title input key down
+  const handleTitleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleTitleSave();
+      } else if (e.key === 'Escape') {
+        setIsEditingTitle(false);
+      }
+    },
+    [handleTitleSave]
+  );
+
+  // Focus title input when editing starts
+  useEffect(() => {
+    if (isEditingTitle && titleInputRef.current) {
+      titleInputRef.current.focus();
+      titleInputRef.current.select();
+    }
+  }, [isEditingTitle]);
+
+  // Handle artifact selection - opens preview
+  const handleSelectArtifact = useCallback((artifact: Artifact) => {
+    setSelectedArtifact(artifact);
+    setIsPreviewVisible(true);
+  }, []);
+
+  // Handle closing preview
+  const handleClosePreview = useCallback(() => {
+    setIsPreviewVisible(false);
+    setSelectedArtifact(null);
+  }, []);
+
+  // Selected tool operation index for syncing with virtual computer
+  const [selectedToolIndex, setSelectedToolIndex] = useState<number | null>(
+    null
+  );
+
+  // Calculate total tool count for auto-selection
+  const toolCount = useMemo(() => {
+    return messages.filter((m) => m.type === 'tool_use').length;
+  }, [messages]);
+
+  // Auto-select the latest tool when running
+  useEffect(() => {
+    if (isRunning && toolCount > 0) {
+      setSelectedToolIndex(toolCount - 1);
+    }
+  }, [toolCount, isRunning]);
+
+  // Tool selection context value
+  const toolSelectionValue = useMemo(
+    () => ({
+      selectedToolIndex,
+      setSelectedToolIndex,
+      showComputer: () => {}, // No-op since we removed the separate computer panel
+    }),
+    [selectedToolIndex]
+  );
+
+  // Helper to convert file type from LibraryFile to Artifact type
+  const convertFileType = (fileType: string): Artifact['type'] => {
+    switch (fileType) {
+      case 'presentation':
+        return 'presentation';
+      case 'spreadsheet':
+        return 'spreadsheet';
+      case 'document':
+        return 'document';
+      case 'image':
+        return 'image';
+      case 'code':
+        return 'code';
+      case 'website':
+        return 'html';
+      default:
+        return 'text';
+    }
+  };
+
+  // Helper to get artifact type from file extension
+  const getArtifactTypeFromExt = (
+    ext: string | undefined
+  ): Artifact['type'] => {
+    if (!ext) return 'text';
+    if (ext === 'html' || ext === 'htm') return 'html';
+    if (ext === 'jsx' || ext === 'tsx') return 'jsx';
+    if (ext === 'css' || ext === 'scss' || ext === 'less') return 'css';
+    if (ext === 'json') return 'json';
+    if (ext === 'md' || ext === 'markdown') return 'markdown';
+    if (ext === 'csv') return 'csv';
+    if (ext === 'pdf') return 'pdf';
+    if (ext === 'doc' || ext === 'docx') return 'document';
+    if (ext === 'xls' || ext === 'xlsx') return 'spreadsheet';
+    if (ext === 'ppt' || ext === 'pptx') return 'presentation';
+    if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp'].includes(ext))
+      return 'image';
+    if (
+      [
+        'js',
+        'ts',
+        'py',
+        'rs',
+        'go',
+        'java',
+        'c',
+        'cpp',
+        'h',
+        'hpp',
+        'rb',
+        'php',
+        'swift',
+        'kt',
+        'sh',
+        'bash',
+        'sql',
+        'yaml',
+        'yml',
+        'xml',
+        'toml',
+      ].includes(ext)
+    )
+      return 'code';
+    return 'text';
+  };
+
+  // Extract artifacts from messages AND load from database
+  useEffect(() => {
+    const loadArtifacts = async () => {
+      const extractedArtifacts: Artifact[] = [];
+      const seenPaths = new Set<string>();
+
+      // 1. Extract from Write tool messages (in-memory content)
+      messages.forEach((msg) => {
+        if (msg.type === 'tool_use' && msg.name === 'Write') {
+          const input = msg.input as Record<string, unknown> | undefined;
+          const filePath = input?.file_path as string | undefined;
+          const content = input?.content as string | undefined;
+
+          if (filePath && !seenPaths.has(filePath)) {
+            seenPaths.add(filePath);
+            const filename = filePath.split('/').pop() || filePath;
+            const ext = filename.split('.').pop()?.toLowerCase();
+
+            extractedArtifacts.push({
+              id: filePath,
+              name: filename,
+              type: getArtifactTypeFromExt(ext),
+              content,
+              path: filePath,
+            });
+          }
+        }
+      });
+
+      // 1.5. Extract files mentioned in tool_result messages and text messages
+      const filePatterns = [
+        // Match paths in backticks
+        /`([^`]+\.(?:pptx|xlsx|docx|pdf))`/gi,
+        // Match absolute paths
+        /(\/[^\s"'`\n]+\.(?:pptx|xlsx|docx|pdf))/gi,
+        // Match Chinese/unicode paths
+        /(\/[^\s"'\n]*[\u4e00-\u9fff][^\s"'\n]*\.(?:pptx|xlsx|docx|pdf))/gi,
+      ];
+
+      messages.forEach((msg) => {
+        // Check tool_result outputs and text message content
+        const textToSearch =
+          msg.type === 'tool_result'
+            ? msg.output
+            : msg.type === 'text'
+              ? msg.content
+              : null;
+
+        if (textToSearch) {
+          for (const pattern of filePatterns) {
+            const matches = textToSearch.matchAll(pattern);
+            for (const match of matches) {
+              const filePath = match[1] || match[0];
+              if (filePath && !seenPaths.has(filePath)) {
+                seenPaths.add(filePath);
+                const filename = filePath.split('/').pop() || filePath;
+                const ext = filename.split('.').pop()?.toLowerCase();
+
+                extractedArtifacts.push({
+                  id: filePath,
+                  name: filename,
+                  type: getArtifactTypeFromExt(ext),
+                  path: filePath,
+                });
+              }
+            }
+          }
+        }
+      });
+
+      // 2. Load files from database (includes files from Skill tool, etc.)
+      if (taskId) {
+        try {
+          const dbFiles = await getFilesByTaskId(taskId);
+          dbFiles.forEach((file: LibraryFile) => {
+            // Skip if we already have this file from Write tool
+            if (file.path && !seenPaths.has(file.path)) {
+              seenPaths.add(file.path);
+              extractedArtifacts.push({
+                id: file.path || `file-${file.id}`,
+                name: file.name,
+                type: convertFileType(file.type),
+                content: file.preview || undefined,
+                path: file.path,
+              });
+            }
+          });
+        } catch (error) {
+          console.error('Failed to load files from database:', error);
+        }
+      }
+
+      setArtifacts(extractedArtifacts);
+      // Auto-select first artifact if none selected
+      if (extractedArtifacts.length > 0 && !selectedArtifact) {
+        setSelectedArtifact(extractedArtifacts[0]);
+      }
+    };
+
+    loadArtifacts();
+  }, [messages, taskId]);
+
+  // Auto scroll to bottom when messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Load all tasks for sidebar
+  useEffect(() => {
+    async function loadAllTasks() {
+      try {
+        const tasks = await getAllTasks();
+        setAllTasks(tasks);
+      } catch (error) {
+        console.error('Failed to load tasks:', error);
+      }
+    }
+    loadAllTasks();
+  }, [task]);
+
+  // Reset state when taskId changes
+  useEffect(() => {
+    if (prevTaskIdRef.current !== taskId) {
+      if (prevTaskIdRef.current !== undefined) {
+        clearMessages();
+        setTask(null);
+        setHasStarted(false);
+        isInitializingRef.current = false; // Reset for new task
+      }
+      prevTaskIdRef.current = taskId;
+    }
+  }, [taskId, clearMessages]);
+
+  // Load existing task or start new one
+  useEffect(() => {
+    async function initialize() {
+      if (!taskId) {
+        setIsLoading(false);
+        return;
+      }
+
+      // Prevent double initialization in React Strict Mode
+      if (isInitializingRef.current) {
+        return;
+      }
+      isInitializingRef.current = true;
+
+      setIsLoading(true);
+
+      const existingTask = await loadTask(taskId);
+
+      if (existingTask) {
+        setTask(existingTask);
+        await loadMessages(taskId);
+        setHasStarted(true);
+        setIsLoading(false);
+      } else if (initialPrompt && !hasStarted) {
+        setHasStarted(true);
+        setIsLoading(false);
+        // Pass session info if available
+        const sessionInfo = initialSessionId
+          ? { sessionId: initialSessionId, taskIndex: initialTaskIndex }
+          : undefined;
+        await runAgent(initialPrompt, taskId, sessionInfo);
+        const newTask = await loadTask(taskId);
+        setTask(newTask);
+      } else {
+        setIsLoading(false);
+      }
+
+      isInitializingRef.current = false;
+    }
+
+    initialize();
+  }, [taskId]);
+
+  const handleReply = async () => {
+    if (replyValue.trim() && !isRunning && taskId) {
+      const reply = replyValue.trim();
+      setReplyValue('');
+      await continueConversation(reply);
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Only submit if Enter is pressed without Shift and not during IME composition
+    // Check multiple signals for IME/autocomplete:
+    // 1. nativeEvent.isComposing - standard way to detect composition
+    // 2. isComposingRef - our own tracking via composition events
+    // 3. keyCode 229 - legacy IME processing indicator (still useful for compatibility)
+    const isComposing =
+      e.nativeEvent.isComposing || isComposingRef.current || e.keyCode === 229;
+
+    if (e.key === 'Enter' && !e.shiftKey && !isComposing) {
+      e.preventDefault();
+      handleReply();
+    }
+  };
+
+  const handleCompositionStart = () => {
+    isComposingRef.current = true;
+  };
+
+  const handleCompositionEnd = () => {
+    // Delay reset to handle edge cases where keydown fires before compositionend
+    setTimeout(() => {
+      isComposingRef.current = false;
+    }, 10);
+  };
+
+  const displayPrompt = task?.prompt || initialPrompt;
+
+  return (
+    <ToolSelectionContext.Provider value={toolSelectionValue}>
+      <div className="bg-sidebar flex h-screen overflow-hidden">
+        {/* Left Sidebar */}
+        <LeftSidebar tasks={allTasks} currentTaskId={taskId} />
+
+        {/* Main Content Area with Responsive Layout */}
+        <div
+          ref={containerRef}
+          className="bg-background my-2 mr-2 flex min-w-0 flex-1 overflow-hidden rounded-2xl shadow-sm"
+        >
+          {/* Left Panel - Agent Chat (flex-1 to fill available space) */}
+          <div
+            className={cn(
+              'bg-background flex min-w-0 flex-col overflow-hidden transition-all duration-200',
+              !isPreviewVisible && !isRightSidebarVisible && 'rounded-2xl',
+              !isPreviewVisible && isRightSidebarVisible && 'rounded-l-2xl',
+              isPreviewVisible && 'rounded-l-2xl'
+            )}
+            style={{
+              flex: isPreviewVisible ? '0 0 auto' : '1 1 0%',
+              width: isPreviewVisible ? 'clamp(320px, 40%, 500px)' : undefined,
+              minWidth: '320px',
+              maxWidth: isPreviewVisible ? '500px' : undefined,
+            }}
+          >
+            {/* Header - Full width */}
+            <header className="border-border/50 bg-background z-10 flex shrink-0 items-center gap-2 border-none px-4 py-3">
+              <button
+                onClick={toggleLeft}
+                className="text-muted-foreground hover:bg-accent hover:text-foreground flex cursor-pointer items-center justify-center rounded-lg p-2 transition-colors duration-200 md:hidden"
+              >
+                <PanelLeft className="size-5" />
+              </button>
+
+              <div className="min-w-0 flex-1">
+                {isEditingTitle ? (
+                  <input
+                    ref={titleInputRef}
+                    type="text"
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    onBlur={handleTitleSave}
+                    onKeyDown={handleTitleKeyDown}
+                    className="text-foreground border-primary/50 focus:border-primary focus:ring-primary/30 max-w-full rounded-md border bg-transparent px-2 py-1 text-sm font-normal outline-none focus:ring-1"
+                    style={{
+                      width: `${Math.min(
+                        Math.max(editedTitle.length + 2, 20),
+                        50
+                      )}ch`,
+                    }}
+                  />
+                ) : (
+                  <h1
+                    onClick={handleTitleClick}
+                    className="text-foreground hover:bg-accent/50 inline-block max-w-full cursor-pointer truncate rounded-md px-2 py-1 text-sm font-normal transition-colors"
+                    title="Click to edit title"
+                  >
+                    {displayPrompt.slice(0, 40) || `Task ${taskId}`}
+                    {displayPrompt.length > 40 && '...'}
+                  </h1>
+                )}
+              </div>
+
+              {isRunning && (
+                <span className="text-primary flex items-center gap-2 text-sm">
+                  <span className="bg-primary size-2 animate-pulse rounded-full" />
+                </span>
+              )}
+
+              {/* Toggle right sidebar button */}
+              <button
+                onClick={() => setIsRightSidebarVisible(!isRightSidebarVisible)}
+                className={cn(
+                  'text-muted-foreground hover:bg-accent hover:text-foreground flex cursor-pointer items-center justify-center rounded-lg p-2 transition-colors',
+                  isRightSidebarVisible && 'bg-accent/50'
+                )}
+                title={isRightSidebarVisible ? 'Hide sidebar' : 'Show sidebar'}
+              >
+                <PanelLeft className="size-4 rotate-180" />
+              </button>
+            </header>
+
+            {/* Messages Area - Centered content when sidebar hidden */}
+            <div
+              className={cn(
+                'flex-1 overflow-x-hidden overflow-y-auto',
+                !isPreviewVisible &&
+                  !isRightSidebarVisible &&
+                  'flex justify-center'
+              )}
+            >
+              <div
+                className={cn(
+                  'w-full px-6 py-4',
+                  !isPreviewVisible && !isRightSidebarVisible && 'max-w-[800px]'
+                )}
+              >
+                {isLoading ? (
+                  <div className="flex h-full items-center justify-center">
+                    <div className="text-muted-foreground flex items-center gap-3">
+                      <div className="size-5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      <span>Loading...</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="max-w-full min-w-0 space-y-4">
+                    {displayPrompt && <UserMessage content={displayPrompt} />}
+
+                    <MessageList
+                      messages={messages}
+                      isRunning={isRunning}
+                      searchQuery={toolSearchQuery}
+                      phase={phase}
+                      onApprovePlan={approvePlan}
+                      onRejectPlan={rejectPlan}
+                    />
+
+                    {isRunning && <RunningIndicator messages={messages} />}
+
+                    {/* Question Input UI - shown when agent asks questions */}
+                    {pendingQuestion && (
+                      <QuestionInput
+                        pendingQuestion={pendingQuestion}
+                        onSubmit={respondToQuestion}
+                      />
+                    )}
+
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Reply Input - Centered when sidebar hidden */}
+            <div
+              className={cn(
+                'border-border/50 bg-background shrink-0 border-none',
+                !isPreviewVisible &&
+                  !isRightSidebarVisible &&
+                  'flex justify-center'
+              )}
+            >
+              <div
+                className={cn(
+                  'w-full px-4 py-3',
+                  !isPreviewVisible && !isRightSidebarVisible && 'max-w-[800px]'
+                )}
+              >
+                <div className="border-border/60 bg-background rounded-xl border p-3 shadow-sm">
+                  <textarea
+                    value={replyValue}
+                    onChange={(e) => setReplyValue(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onCompositionStart={handleCompositionStart}
+                    onCompositionEnd={handleCompositionEnd}
+                    placeholder="Reply..."
+                    className="bg-background text-foreground placeholder:text-muted-foreground max-h-[80px] min-h-[20px] w-full resize-none border-0 px-1 text-sm focus:outline-none"
+                    rows={1}
+                    disabled={isRunning}
+                  />
+
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:bg-accent hover:text-foreground flex size-7 cursor-pointer items-center justify-center rounded-md transition-colors"
+                      >
+                        <Plus className="size-4" />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      {isRunning ? (
+                        <button
+                          onClick={stopAgent}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 flex size-7 cursor-pointer items-center justify-center rounded-full transition-colors"
+                        >
+                          <Square className="size-3" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={handleReply}
+                          disabled={!replyValue.trim()}
+                          className={cn(
+                            'flex size-7 items-center justify-center rounded-full transition-all',
+                            replyValue.trim()
+                              ? 'bg-foreground text-background hover:bg-foreground/90 cursor-pointer'
+                              : 'bg-muted text-muted-foreground cursor-not-allowed'
+                          )}
+                        >
+                          <Send className="size-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Divider between chat and preview */}
+          {isPreviewVisible && <div className="bg-border/50 w-px shrink-0" />}
+
+          {/* Middle Panel - Artifact Preview (only shown when artifact selected) */}
+          {isPreviewVisible && (
+            <div className="bg-muted/10 flex min-w-0 flex-1 flex-col overflow-hidden">
+              <ArtifactPreview
+                artifact={selectedArtifact}
+                onClose={handleClosePreview}
+                allArtifacts={artifacts}
+                livePreviewUrl={livePreviewUrl}
+                livePreviewStatus={livePreviewStatus}
+                livePreviewError={livePreviewError}
+                onStartLivePreview={
+                  workingDir ? handleStartLivePreview : undefined
+                }
+                onStopLivePreview={handleStopLivePreview}
+              />
+            </div>
+          )}
+
+          {/* Divider between preview/chat and sidebar */}
+          {isRightSidebarVisible && (
+            <div className="bg-border/50 w-px shrink-0" />
+          )}
+
+          {/* Right Panel - Progress, Artifacts, Context (fixed width) */}
+          {isRightSidebarVisible && (
+            <div
+              className="bg-background flex shrink-0 flex-col overflow-hidden rounded-r-2xl"
+              style={{ width: '280px', minWidth: '240px', maxWidth: '320px' }}
+            >
+              <RightSidebar
+                messages={messages}
+                isRunning={isRunning}
+                artifacts={artifacts}
+                selectedArtifact={selectedArtifact}
+                onSelectArtifact={handleSelectArtifact}
+                workingDir={workingDir}
+              />
+            </div>
+          )}
+        </div>
+      </div>
+    </ToolSelectionContext.Provider>
+  );
+}
+
+// User Message Component
+function UserMessage({ content }: { content: string }) {
+  return (
+    <div className="flex min-w-0 gap-3">
+      <div className="min-w-0 flex-1"></div>
+      <div className="bg-accent/50 max-w-[85%] min-w-0 rounded-xl px-4 py-3">
+        <p className="text-foreground text-sm break-words whitespace-pre-wrap">
+          {content}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// Message List Component with task grouping
+function MessageList({
+  messages,
+  isRunning,
+  searchQuery,
+  phase,
+  onApprovePlan,
+  onRejectPlan,
+}: {
+  messages: AgentMessage[];
+  isRunning: boolean;
+  searchQuery?: string;
+  phase?: string;
+  onApprovePlan?: () => void;
+  onRejectPlan?: () => void;
+}) {
+  if (messages.length === 0) {
+    return null;
+  }
+
+  // Define types
+  type ToolWithResult = {
+    message: AgentMessage;
+    globalIndex: number;
+    result?: AgentMessage;
+  };
+
+  type TaskMessageGroup = {
+    type: 'task';
+    title: string;
+    description: string;
+    tools: ToolWithResult[];
+    isCompleted: boolean;
+  };
+
+  type OtherMessageGroup = {
+    type: 'other';
+    message: AgentMessage;
+  };
+
+  type MessageGroup = TaskMessageGroup | OtherMessageGroup;
+
+  // Pre-process: find the last text message index before result (the final answer)
+  let lastTextBeforeResultIndex = -1;
+  let resultIndex = messages.findIndex((m) => m.type === 'result');
+  if (resultIndex === -1) resultIndex = messages.length;
+
+  for (let i = resultIndex - 1; i >= 0; i--) {
+    if (messages[i].type === 'text' && messages[i].content) {
+      lastTextBeforeResultIndex = i;
+      break;
+    }
+  }
+
+  // Filter messages: only keep the last text message before result, skip others
+  const mergedMessages: AgentMessage[] = [];
+  let textCountBeforeResult = 0;
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.type === 'text' && msg.content && i < resultIndex) {
+      textCountBeforeResult++;
+      // Only keep the last text message before result
+      if (i === lastTextBeforeResultIndex) {
+        mergedMessages.push(msg);
+      }
+      // Skip other text messages
+    } else {
+      mergedMessages.push(msg);
+    }
+  }
+
+  // Collect all tool_result messages in order for matching with tool_use
+  const toolResultMessages: AgentMessage[] = [];
+  mergedMessages.forEach((msg) => {
+    if (msg.type === 'tool_result') {
+      toolResultMessages.push(msg);
+    }
+  });
+
+  // Match tool_use with tool_result by index (they come in pairs)
+  const getToolResult = (toolUseIndex: number): AgentMessage | undefined => {
+    return toolResultMessages[toolUseIndex];
+  };
+
+  // Find the last result message index to only show that one
+  let lastResultIndex = -1;
+  mergedMessages.forEach((msg, index) => {
+    if (msg.type === 'result') {
+      lastResultIndex = index;
+    }
+  });
+
+  // Process messages into groups
+  const groups: MessageGroup[] = [];
+  let toolGlobalIndex = 0;
+  let toolUseIndex = 0;
+
+  // Use a ref object to track current group (avoids TypeScript narrowing issues)
+  const state = { currentGroup: null as TaskMessageGroup | null };
+
+  const pushCurrentGroup = (completed: boolean) => {
+    if (
+      state.currentGroup &&
+      (state.currentGroup.tools.length > 0 || state.currentGroup.description)
+    ) {
+      state.currentGroup.isCompleted = completed;
+      groups.push(state.currentGroup);
+      state.currentGroup = null;
+    }
+  };
+
+  const ensureCurrentGroup = () => {
+    if (!state.currentGroup) {
+      state.currentGroup = {
+        type: 'task',
+        title: '执行任务',
+        description: '',
+        tools: [],
+        isCompleted: false,
+      };
+    }
+    return state.currentGroup;
+  };
+
+  let lastTextContent = '';
+  // Track pending text message that might be standalone (no following tools)
+  let pendingTextMessage: AgentMessage | null = null;
+
+  mergedMessages.forEach((message, msgIndex) => {
+    if (message.type === 'text' && message.content) {
+      // Skip duplicate consecutive text messages
+      if (message.content === lastTextContent) {
+        return;
+      }
+
+      // Skip text messages that contain raw plan JSON
+      // These are displayed by the PlanApproval component instead
+      const trimmedContent = message.content.trim();
+      if (
+        trimmedContent.startsWith('{') &&
+        trimmedContent.includes('"type"') &&
+        trimmedContent.includes('"plan"')
+      ) {
+        return;
+      }
+
+      lastTextContent = message.content;
+
+      // If there's a pending text message that had no tools, render it as standalone
+      if (pendingTextMessage) {
+        groups.push({ type: 'other', message: pendingTextMessage });
+      }
+
+      // Push any current tool group
+      pushCurrentGroup(true);
+
+      // Store this text as pending - we'll decide how to render it based on what follows
+      pendingTextMessage = message;
+      state.currentGroup = null;
+    } else if (message.type === 'tool_use' && message.name) {
+      // Text followed by tool_use - create a task group with the text as description
+      if (pendingTextMessage) {
+        const title =
+          (pendingTextMessage.content || '').slice(0, 80) +
+          ((pendingTextMessage.content || '').length > 80 ? '...' : '');
+        state.currentGroup = {
+          type: 'task',
+          title,
+          description: pendingTextMessage.content || '',
+          tools: [],
+          isCompleted: false,
+        };
+        pendingTextMessage = null;
+      }
+      const group = ensureCurrentGroup();
+      // Find associated tool_result by index
+      const result = getToolResult(toolUseIndex);
+      group.tools.push({ message, globalIndex: toolGlobalIndex++, result });
+      toolUseIndex++;
+    } else if (message.type === 'tool_result') {
+      // Skip tool_result messages as they're associated with tool_use
+    } else if (message.type === 'user') {
+      // Flush any pending text as standalone
+      if (pendingTextMessage) {
+        groups.push({ type: 'other', message: pendingTextMessage });
+        pendingTextMessage = null;
+      }
+      pushCurrentGroup(true);
+      groups.push({ type: 'other', message });
+    } else if (message.type === 'result') {
+      // Only show the last result message
+      if (msgIndex === lastResultIndex) {
+        // Flush any pending text as standalone
+        if (pendingTextMessage) {
+          groups.push({ type: 'other', message: pendingTextMessage });
+          pendingTextMessage = null;
+        }
+        pushCurrentGroup(true);
+        groups.push({ type: 'other', message });
+      }
+    } else if (message.type === 'error') {
+      // Flush any pending text as standalone
+      if (pendingTextMessage) {
+        groups.push({ type: 'other', message: pendingTextMessage });
+        pendingTextMessage = null;
+      }
+      pushCurrentGroup(true);
+      groups.push({ type: 'other', message });
+    } else if (message.type === 'plan') {
+      // Plan message - render inline
+      if (pendingTextMessage) {
+        groups.push({ type: 'other', message: pendingTextMessage });
+        pendingTextMessage = null;
+      }
+      pushCurrentGroup(true);
+      groups.push({ type: 'other', message });
+    }
+  });
+
+  // Push any remaining pending text as standalone message
+  if (pendingTextMessage) {
+    groups.push({ type: 'other', message: pendingTextMessage });
+  }
+
+  // Push any remaining tool group
+  pushCurrentGroup(!isRunning);
+
+  return (
+    <div className="space-y-4">
+      {groups.map((group, index) => {
+        if (group.type === 'task') {
+          return (
+            <TaskGroupComponent
+              key={index}
+              title={group.title}
+              description={group.description}
+              tools={group.tools}
+              isCompleted={group.isCompleted}
+              isRunning={isRunning}
+              searchQuery={searchQuery}
+            />
+          );
+        }
+        return (
+          <MessageItem
+            key={index}
+            message={group.message}
+            phase={phase}
+            onApprovePlan={onApprovePlan}
+            onRejectPlan={onRejectPlan}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+// Task Group Component - shows text description and collapsible tool list
+function TaskGroupComponent({
+  title,
+  description,
+  tools,
+  isCompleted,
+  isRunning,
+  searchQuery,
+}: {
+  title: string;
+  description: string;
+  tools: {
+    message: AgentMessage;
+    globalIndex: number;
+    result?: AgentMessage;
+  }[];
+  isCompleted: boolean;
+  isRunning: boolean;
+  searchQuery?: string;
+}) {
+  // Default: collapsed when completed, expanded when running or in progress
+  const [isExpanded, setIsExpanded] = useState(!isCompleted || isRunning);
+
+  // Auto-collapse when task completes
+  useEffect(() => {
+    if (isCompleted && !isRunning) {
+      setIsExpanded(false);
+    }
+  }, [isCompleted, isRunning]);
+
+  return (
+    <div className="min-w-0 space-y-3">
+      {/* Task description with Logo */}
+      {description && (
+        <div className="flex min-w-0 flex-col gap-2">
+          <div className="flex min-w-0 items-start gap-2">
+            {isCompleted ? (
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+            ) : (
+              <div className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+                <div className="bg-primary size-2 animate-pulse rounded-full" />
+              </div>
+            )}
+            <span className="text-foreground line-clamp-2 min-w-0 text-sm font-medium break-words">
+              {title}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Collapsible tool list */}
+      {tools.length > 0 && (
+        <div className="border-border/40 bg-accent/20 min-w-0 overflow-hidden rounded-xl border">
+          {/* Header */}
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-muted-foreground hover:text-foreground hover:bg-accent/30 flex w-full cursor-pointer items-center gap-2 px-4 py-2.5 text-sm transition-colors"
+          >
+            <ChevronDown
+              className={cn(
+                'size-4 shrink-0 transition-transform',
+                !isExpanded && '-rotate-90'
+              )}
+            />
+            <span className="flex-1 text-left">
+              {isExpanded ? 'Hide steps' : `Show ${tools.length} steps`}
+            </span>
+          </button>
+
+          {/* Tool list */}
+          {isExpanded && (
+            <div className="px-2 pb-2">
+              {tools.map(({ message, globalIndex, result }, index) => (
+                <ToolExecutionItem
+                  key={globalIndex}
+                  message={message}
+                  result={result}
+                  isFirst={index === 0}
+                  isLast={
+                    globalIndex === tools[tools.length - 1].globalIndex &&
+                    isRunning
+                  }
+                  searchQuery={searchQuery}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Individual Message Component for non-task messages
+function MessageItem({
+  message,
+  phase,
+  onApprovePlan,
+  onRejectPlan,
+}: {
+  message: AgentMessage;
+  phase?: string;
+  onApprovePlan?: () => void;
+  onRejectPlan?: () => void;
+}) {
+  if (message.type === 'user') {
+    return <UserMessage content={message.content || ''} />;
+  }
+
+  if (message.type === 'plan' && message.plan) {
+    return (
+      <PlanApproval
+        plan={message.plan}
+        isWaitingApproval={phase === 'awaiting_approval'}
+        onApprove={onApprovePlan}
+        onReject={onRejectPlan}
+      />
+    );
+  }
+
+  if (message.type === 'text') {
+    return (
+      <div className="flex min-w-0 flex-col gap-3">
+        <Logo />
+        <div className="prose prose-sm text-foreground max-w-none min-w-0 flex-1 overflow-hidden">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              pre: ({ children }) => (
+                <pre className="bg-muted max-w-full overflow-x-auto rounded-lg p-4">
+                  {children}
+                </pre>
+              ),
+              code: ({ className, children, ...props }) => {
+                const isInline = !className;
+                if (isInline) {
+                  return (
+                    <code
+                      className="bg-muted rounded px-1.5 py-0.5 text-sm"
+                      {...props}
+                    >
+                      {children}
+                    </code>
+                  );
+                }
+                return (
+                  <code className={className} {...props}>
+                    {children}
+                  </code>
+                );
+              },
+              a: ({ children, href }) => (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary hover:underline"
+                >
+                  {children}
+                </a>
+              ),
+              table: ({ children }) => (
+                <div className="overflow-x-auto">
+                  <table className="border-border border-collapse border">
+                    {children}
+                  </table>
+                </div>
+              ),
+              th: ({ children }) => (
+                <th className="border-border bg-muted border px-3 py-2 text-left">
+                  {children}
+                </th>
+              ),
+              td: ({ children }) => (
+                <td className="border-border border px-3 py-2">{children}</td>
+              ),
+            }}
+          >
+            {message.content || ''}
+          </ReactMarkdown>
+        </div>
+      </div>
+    );
+  }
+
+  if (message.type === 'result') {
+    return null;
+  }
+
+  if (message.type === 'error') {
+    return (
+      <div className="flex items-start gap-3 py-2">
+        <div className="mt-0.5 flex size-5 shrink-0 items-center justify-center">
+          <svg
+            viewBox="0 0 16 16"
+            className="text-destructive size-4"
+            fill="currentColor"
+          >
+            <path d="M8 1a7 7 0 100 14A7 7 0 008 1zM7 4.5a1 1 0 112 0v3a1 1 0 11-2 0v-3zm1 7a1 1 0 100-2 1 1 0 000 2z" />
+          </svg>
+        </div>
+        <p className="text-muted-foreground text-sm">{message.message}</p>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// Running indicator component - shows current activity
+function RunningIndicator({ messages }: { messages: AgentMessage[] }) {
+  // Find the last tool_use message to show current activity
+  const lastToolUse = [...messages]
+    .reverse()
+    .find((m) => m.type === 'tool_use');
+
+  // Get description of current activity
+  const getActivityText = () => {
+    if (!lastToolUse?.name) {
+      return 'Thinking...';
+    }
+
+    const input = lastToolUse.input as Record<string, unknown> | undefined;
+
+    switch (lastToolUse.name) {
+      case 'Bash':
+        return `Running command...`;
+      case 'Read':
+        const readFile = input?.file_path
+          ? String(input.file_path).split('/').pop()
+          : '';
+        return `Reading ${readFile || 'file'}...`;
+      case 'Write':
+        const writeFile = input?.file_path
+          ? String(input.file_path).split('/').pop()
+          : '';
+        return `Writing ${writeFile || 'file'}...`;
+      case 'Edit':
+        const editFile = input?.file_path
+          ? String(input.file_path).split('/').pop()
+          : '';
+        return `Editing ${editFile || 'file'}...`;
+      case 'Grep':
+        return 'Searching...';
+      case 'Glob':
+        return 'Finding files...';
+      case 'WebSearch':
+        return 'Searching web...';
+      case 'WebFetch':
+        return 'Fetching page...';
+      case 'Task':
+        return 'Running subtask...';
+      default:
+        return `Running ${lastToolUse.name}...`;
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-3 py-2">
+      {/* Spinning loader - Claude style */}
+      <div className="relative size-6 shrink-0">
+        <svg className="size-6 animate-spin" viewBox="0 0 24 24">
+          <circle
+            className="opacity-20"
+            cx="12"
+            cy="12"
+            r="10"
+            stroke="currentColor"
+            strokeWidth="2"
+            fill="none"
+            style={{ color: '#d97706' }}
+          />
+          <path
+            className="opacity-80"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            d="M12 2a10 10 0 0 1 10 10"
+            style={{ color: '#d97706' }}
+          />
+        </svg>
+      </div>
+      <span className="text-muted-foreground text-sm">{getActivityText()}</span>
+    </div>
+  );
+}

@@ -1,0 +1,63 @@
+// Import for registration
+import type { SandboxPlugin } from '@/core/sandbox/plugin';
+import { getSandboxRegistry } from '@/core/sandbox/registry';
+import { boxlitePlugin } from '@/extensions/sandbox/boxlite';
+import { codexPlugin } from '@/extensions/sandbox/codex';
+import { nativePlugin } from '@/extensions/sandbox/native';
+
+/**
+ * Sandbox Providers Index
+ *
+ * Exports all available sandbox providers and registers them with the registry.
+ * Now uses the plugin system for better extensibility.
+ */
+
+// Export providers
+export {
+  NativeProvider,
+  createNativeProvider,
+  nativePlugin,
+} from '@/extensions/sandbox/native';
+export {
+  BoxLiteProvider,
+  createBoxLiteProvider,
+  isBoxLiteAvailable,
+  boxlitePlugin,
+} from '@/extensions/sandbox/boxlite';
+export {
+  CodexProvider,
+  createCodexProvider,
+  codexPlugin,
+} from '@/extensions/sandbox/codex';
+
+/**
+ * All built-in plugins
+ */
+export const builtinPlugins: SandboxPlugin[] = [
+  nativePlugin,
+  boxlitePlugin,
+  codexPlugin,
+];
+
+/**
+ * Register all built-in sandbox providers
+ */
+export function registerBuiltinProviders(): void {
+  const registry = getSandboxRegistry();
+
+  for (const plugin of builtinPlugins) {
+    registry.register(plugin);
+  }
+
+  console.log(
+    `[SandboxProviders] Registered built-in providers: ${builtinPlugins.map((p) => p.metadata.type).join(', ')}`
+  );
+}
+
+/**
+ * Register a custom sandbox plugin
+ */
+export function registerSandboxPlugin(plugin: SandboxPlugin): void {
+  const registry = getSandboxRegistry();
+  registry.register(plugin);
+}

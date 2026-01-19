@@ -1,0 +1,626 @@
+// Settings types and storage for AI provider configuration
+
+import { getAppDataDir, getMcpConfigPath, getSkillsDir } from '../lib/paths';
+
+export interface AIProvider {
+  id: string;
+  name: string;
+  apiKey: string;
+  baseUrl: string;
+  enabled: boolean;
+  models: string[];
+}
+
+export interface MCPServer {
+  id: string;
+  name: string;
+  type: 'stdio' | 'http';
+  command?: string;
+  args?: string[];
+  url?: string;
+  enabled: boolean;
+}
+
+// ============================================================================
+// Sandbox Provider Settings
+// ============================================================================
+
+export type SandboxProviderType =
+  | 'boxlite'
+  | 'docker'
+  | 'native'
+  | 'e2b'
+  | 'custom';
+
+export interface SandboxProviderSetting {
+  id: string;
+  type: SandboxProviderType;
+  name: string;
+  enabled: boolean;
+  config: Record<string, unknown>;
+}
+
+export const defaultSandboxProviders: SandboxProviderSetting[] = [
+  {
+    id: 'native',
+    type: 'native',
+    name: 'Native (No Isolation)',
+    enabled: true,
+    config: {
+      shell: '/bin/bash',
+      defaultTimeout: 120000,
+    },
+  },
+  {
+    id: 'boxlite',
+    type: 'boxlite',
+    name: 'BoxLite VM',
+    enabled: true,
+    config: {
+      memoryMib: 1024,
+      cpus: 2,
+      workDir: '/workspace',
+      autoRemove: true,
+    },
+  },
+];
+
+// ============================================================================
+// Agent Runtime Settings
+// ============================================================================
+
+export type AgentRuntimeType = 'claude' | 'codex' | 'deepagents' | 'custom';
+
+export interface AgentRuntimeSetting {
+  id: string;
+  type: AgentRuntimeType;
+  name: string;
+  enabled: boolean;
+  config: {
+    apiKey?: string;
+    baseUrl?: string;
+    model?: string;
+    executablePath?: string;
+    [key: string]: unknown;
+  };
+}
+
+export const defaultAgentRuntimes: AgentRuntimeSetting[] = [
+  {
+    id: 'claude',
+    type: 'claude',
+    name: 'Claude Code',
+    enabled: true,
+    config: {
+      model: 'claude-sonnet-4-20250514',
+    },
+  },
+  {
+    id: 'codex',
+    type: 'codex',
+    name: 'OpenAI Codex CLI',
+    enabled: false,
+    config: {
+      model: 'codex',
+    },
+  },
+];
+
+export interface UserProfile {
+  nickname: string;
+  avatar: string; // URL or base64 data
+}
+
+// Preset accent colors
+export type AccentColor =
+  | 'orange'
+  | 'blue'
+  | 'green'
+  | 'purple'
+  | 'pink'
+  | 'red';
+
+export const accentColors: {
+  id: AccentColor;
+  name: string;
+  color: string;
+  darkColor: string;
+}[] = [
+  {
+    id: 'orange',
+    name: 'Orange',
+    color: 'oklch(0.6716 0.1368 48.513)',
+    darkColor: 'oklch(0.7214 0.1337 49.9802)',
+  },
+  {
+    id: 'blue',
+    name: 'Blue',
+    color: 'oklch(0.5469 0.1914 262.881)',
+    darkColor: 'oklch(0.6232 0.1914 262.881)',
+  },
+  {
+    id: 'green',
+    name: 'Green',
+    color: 'oklch(0.5966 0.1397 149.214)',
+    darkColor: 'oklch(0.6489 0.1397 149.214)',
+  },
+  {
+    id: 'purple',
+    name: 'Purple',
+    color: 'oklch(0.5412 0.1879 293.541)',
+    darkColor: 'oklch(0.6135 0.1879 293.541)',
+  },
+  {
+    id: 'pink',
+    name: 'Pink',
+    color: 'oklch(0.6171 0.1762 349.761)',
+    darkColor: 'oklch(0.6894 0.1762 349.761)',
+  },
+  {
+    id: 'red',
+    name: 'Red',
+    color: 'oklch(0.5772 0.2077 27.325)',
+    darkColor: 'oklch(0.6495 0.2077 27.325)',
+  },
+];
+
+export interface Settings {
+  // User profile
+  profile: UserProfile;
+
+  // AI Provider settings
+  providers: AIProvider[];
+  defaultProvider: string;
+  defaultModel: string;
+
+  // MCP settings - path to mcp.json config file
+  mcpConfigPath: string;
+
+  // Skills settings
+  skillsPath: string;
+
+  // Workspace settings
+  workDir: string; // Working directory for sessions and outputs
+
+  // Sandbox settings
+  sandboxEnabled: boolean; // Enable sandbox mode for script execution
+  sandboxProviders: SandboxProviderSetting[]; // Available sandbox providers
+  defaultSandboxProvider: string; // Default sandbox provider ID
+
+  // Agent Runtime settings
+  agentRuntimes: AgentRuntimeSetting[]; // Available agent runtimes
+  defaultAgentRuntime: string; // Default agent runtime ID
+
+  // General settings
+  theme: 'light' | 'dark' | 'system';
+  accentColor: AccentColor;
+  language: string;
+}
+
+// Default providers
+export const defaultProviders: AIProvider[] = [
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    apiKey: '',
+    baseUrl: 'https://openrouter.ai/api',
+    enabled: true,
+    models: [
+      'anthropic/claude-sonnet-4',
+      'anthropic/claude-haiku-4',
+      'anthropic/claude-opus-4',
+      'openai/gpt-4o',
+      'openai/gpt-4o-mini',
+      'google/gemini-2.0-flash-001',
+      'deepseek/deepseek-chat',
+    ],
+  },
+  {
+    id: 'siliconflow',
+    name: 'SiliconFlow',
+    apiKey: '',
+    baseUrl: 'https://api.siliconflow.cn/v1',
+    enabled: false,
+    models: ['deepseek-v3', 'qwen2.5-72b-instruct'],
+  },
+  {
+    id: 'replicate',
+    name: 'Replicate',
+    apiKey: '',
+    baseUrl: 'https://api.replicate.com/v1',
+    enabled: false,
+    models: ['meta/llama-3.1-405b', 'mistral/mixtral-8x7b'],
+  },
+  {
+    id: 'fal',
+    name: 'Fal',
+    apiKey: '',
+    baseUrl: 'https://fal.run',
+    enabled: false,
+    models: ['fal-ai/flux/dev', 'fal-ai/flux/schnell'],
+  },
+  {
+    id: 'openai',
+    name: 'OpenAI',
+    apiKey: '',
+    baseUrl: 'https://api.openai.com/v1',
+    enabled: false,
+    models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'],
+  },
+  {
+    id: 'anthropic',
+    name: 'Anthropic',
+    apiKey: '',
+    baseUrl: 'https://api.anthropic.com',
+    enabled: false,
+    models: [
+      'claude-sonnet-4-20250514',
+      'claude-haiku-4-20250514',
+      'claude-opus-4-20250514',
+    ],
+  },
+];
+
+// Default settings
+// Note: Path values are placeholders that get resolved at initialization
+// to platform-specific paths (e.g., ~/Library/Application Support/workany on macOS)
+export const defaultSettings: Settings = {
+  profile: {
+    nickname: 'Guest User',
+    avatar: '',
+  },
+  providers: defaultProviders,
+  defaultProvider: 'default', // Use environment variables by default
+  defaultModel: '',
+  mcpConfigPath: '', // Will be resolved to app data dir at init
+  skillsPath: '', // Will be resolved to app data dir at init
+  workDir: '', // Will be resolved to app data dir at init
+  sandboxEnabled: false,
+  sandboxProviders: defaultSandboxProviders,
+  defaultSandboxProvider: 'native', // Default to native (no isolation)
+  agentRuntimes: defaultAgentRuntimes,
+  defaultAgentRuntime: 'claude', // Default to Claude Code
+  theme: 'system',
+  accentColor: 'orange',
+  language: 'zh-CN',
+};
+
+const DB_NAME = 'sqlite:workany.db';
+
+// Check if running in Tauri environment synchronously
+function isTauriSync(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const hasTauriInternals = '__TAURI_INTERNALS__' in window;
+  const hasTauri = '__TAURI__' in window;
+  return hasTauriInternals || hasTauri;
+}
+
+// In-memory cache for settings
+let settingsCache: Settings | null = null;
+
+// Tauri database instance
+let db: Awaited<
+  ReturnType<typeof import('@tauri-apps/plugin-sql').default.load>
+> | null = null;
+
+// Initialize database connection (only in Tauri)
+async function getDatabase() {
+  if (!isTauriSync()) {
+    return null;
+  }
+
+  if (!db) {
+    try {
+      const Database = (await import('@tauri-apps/plugin-sql')).default;
+      db = await Database.load(DB_NAME);
+    } catch (error) {
+      console.error('[Settings] Failed to connect to SQLite:', error);
+      return null;
+    }
+  }
+  return db;
+}
+
+// Get settings from database (async version)
+export async function getSettingsAsync(): Promise<Settings> {
+  // Return cached settings if available
+  if (settingsCache) {
+    return settingsCache;
+  }
+
+  const database = await getDatabase();
+
+  if (database) {
+    try {
+      const result = await database.select<{ key: string; value: string }[]>(
+        'SELECT key, value FROM settings'
+      );
+
+      if (result.length > 0) {
+        // Build settings object from key-value pairs
+        const settings = { ...defaultSettings };
+        for (const row of result) {
+          try {
+            const value = JSON.parse(row.value);
+            (settings as Record<string, unknown>)[row.key] = value;
+          } catch {
+            // Skip invalid JSON values
+          }
+        }
+        settingsCache = settings;
+        return settings;
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to load from database:', error);
+    }
+  }
+
+  // Fallback to localStorage for browser mode
+  try {
+    const stored = localStorage.getItem('workany_settings');
+    if (stored) {
+      const loadedSettings = { ...defaultSettings, ...JSON.parse(stored) };
+      settingsCache = loadedSettings;
+      return loadedSettings;
+    }
+  } catch (error) {
+    console.error('[Settings] Failed to load from localStorage:', error);
+  }
+
+  settingsCache = defaultSettings;
+  return defaultSettings;
+}
+
+// Get settings synchronously (returns cached or default)
+export function getSettings(): Settings {
+  if (settingsCache) {
+    return settingsCache;
+  }
+
+  // Try localStorage first for immediate sync access
+  try {
+    const stored = localStorage.getItem('workany_settings');
+    if (stored) {
+      const loadedSettings = { ...defaultSettings, ...JSON.parse(stored) };
+      settingsCache = loadedSettings;
+      return loadedSettings;
+    }
+  } catch {
+    // Ignore errors
+  }
+
+  return defaultSettings;
+}
+
+// Save settings to database (async version)
+export async function saveSettingsAsync(settings: Settings): Promise<void> {
+  settingsCache = settings;
+
+  const database = await getDatabase();
+
+  if (database) {
+    try {
+      // Save each setting key individually using REPLACE
+      const keys = Object.keys(settings) as (keyof Settings)[];
+      for (const key of keys) {
+        const value = JSON.stringify(settings[key]);
+        await database.execute(
+          `INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ($1, $2, datetime('now'))`,
+          [key, value]
+        );
+      }
+    } catch (error) {
+      console.error('[Settings] Failed to save to database:', error);
+    }
+  }
+
+  // Also save to localStorage as fallback
+  try {
+    localStorage.setItem('workany_settings', JSON.stringify(settings));
+  } catch (error) {
+    console.error('[Settings] Failed to save to localStorage:', error);
+  }
+}
+
+// Sync version that triggers async save
+export function saveSettings(settings: Settings): void {
+  settingsCache = settings;
+
+  // Save to localStorage immediately for sync access
+  try {
+    localStorage.setItem('workany_settings', JSON.stringify(settings));
+  } catch (error) {
+    console.error('[Settings] Failed to save to localStorage:', error);
+  }
+
+  // Also save to database asynchronously
+  saveSettingsAsync(settings).catch((error) => {
+    console.error('[Settings] Failed to save settings async:', error);
+  });
+}
+
+// Initialize settings - call this on app startup
+export async function initializeSettings(): Promise<Settings> {
+  // Resolve platform-specific paths
+  const [appDataDir, mcpConfigPath, skillsPath] = await Promise.all([
+    getAppDataDir(),
+    getMcpConfigPath(),
+    getSkillsDir(),
+  ]);
+
+  const settings = await getSettingsAsync();
+
+  // If paths are empty (first run or migration), set them to platform defaults
+  if (!settings.workDir) {
+    settings.workDir = appDataDir;
+  }
+  if (!settings.mcpConfigPath) {
+    settings.mcpConfigPath = mcpConfigPath;
+  }
+  if (!settings.skillsPath) {
+    settings.skillsPath = skillsPath;
+  }
+
+  settingsCache = settings;
+
+  // Save if paths were updated
+  if (
+    settings.workDir === appDataDir ||
+    settings.mcpConfigPath === mcpConfigPath ||
+    settings.skillsPath === skillsPath
+  ) {
+    await saveSettingsAsync(settings);
+  }
+
+  return settings;
+}
+
+// Update a single AI provider
+export function updateProvider(
+  providerId: string,
+  updates: Partial<AIProvider>
+): Settings {
+  const settings = getSettings();
+  const providerIndex = settings.providers.findIndex(
+    (p) => p.id === providerId
+  );
+  if (providerIndex !== -1) {
+    settings.providers[providerIndex] = {
+      ...settings.providers[providerIndex],
+      ...updates,
+    };
+    saveSettings(settings);
+  }
+  return settings;
+}
+
+// ============================================================================
+// Sandbox Provider Management
+// ============================================================================
+
+// Update a sandbox provider
+export function updateSandboxProvider(
+  providerId: string,
+  updates: Partial<SandboxProviderSetting>
+): Settings {
+  const settings = getSettings();
+  const providerIndex = settings.sandboxProviders.findIndex(
+    (p) => p.id === providerId
+  );
+  if (providerIndex !== -1) {
+    settings.sandboxProviders[providerIndex] = {
+      ...settings.sandboxProviders[providerIndex],
+      ...updates,
+    };
+    saveSettings(settings);
+  }
+  return settings;
+}
+
+// Set default sandbox provider
+export function setDefaultSandboxProvider(providerId: string): Settings {
+  const settings = getSettings();
+  settings.defaultSandboxProvider = providerId;
+  saveSettings(settings);
+  return settings;
+}
+
+// Get the current default sandbox provider
+export function getDefaultSandboxProvider():
+  | SandboxProviderSetting
+  | undefined {
+  const settings = getSettings();
+  return settings.sandboxProviders.find(
+    (p) => p.id === settings.defaultSandboxProvider
+  );
+}
+
+// ============================================================================
+// Agent Runtime Management
+// ============================================================================
+
+// Update an agent runtime
+export function updateAgentRuntime(
+  runtimeId: string,
+  updates: Partial<AgentRuntimeSetting>
+): Settings {
+  const settings = getSettings();
+  const runtimeIndex = settings.agentRuntimes.findIndex(
+    (r) => r.id === runtimeId
+  );
+  if (runtimeIndex !== -1) {
+    settings.agentRuntimes[runtimeIndex] = {
+      ...settings.agentRuntimes[runtimeIndex],
+      ...updates,
+    };
+    saveSettings(settings);
+  }
+  return settings;
+}
+
+// Set default agent runtime
+export function setDefaultAgentRuntime(runtimeId: string): Settings {
+  const settings = getSettings();
+  settings.defaultAgentRuntime = runtimeId;
+  saveSettings(settings);
+  return settings;
+}
+
+// Get the current default agent runtime
+export function getDefaultAgentRuntime(): AgentRuntimeSetting | undefined {
+  const settings = getSettings();
+  return settings.agentRuntimes.find(
+    (r) => r.id === settings.defaultAgentRuntime
+  );
+}
+
+// ============================================================================
+// Backend Sync
+// ============================================================================
+
+// Use different ports for development (2026) and production (2620)
+const API_PORT = import.meta.env.PROD ? 2620 : 2026;
+const API_BASE_URL = `http://localhost:${API_PORT}`;
+
+/**
+ * Sync settings with the backend API
+ * This ensures the backend uses the same provider configuration as the frontend
+ */
+export async function syncSettingsWithBackend(): Promise<void> {
+  const settings = getSettings();
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/providers/settings/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sandboxProvider: settings.defaultSandboxProvider,
+        sandboxConfig: getDefaultSandboxProvider()?.config,
+        agentProvider: settings.defaultAgentRuntime,
+        agentConfig: getDefaultAgentRuntime()?.config,
+      }),
+    });
+
+    if (!response.ok) {
+      console.error(
+        '[Settings] Failed to sync with backend:',
+        response.statusText
+      );
+    } else {
+      console.log('[Settings] Successfully synced with backend');
+    }
+  } catch (error) {
+    // Backend might not be running, ignore error
+    console.warn('[Settings] Could not sync with backend:', error);
+  }
+}
+
+/**
+ * Save settings and sync with backend
+ */
+export async function saveSettingsWithSync(settings: Settings): Promise<void> {
+  saveSettings(settings);
+  await syncSettingsWithBackend();
+}
