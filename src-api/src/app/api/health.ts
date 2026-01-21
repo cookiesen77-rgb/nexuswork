@@ -101,6 +101,18 @@ const DEPENDENCIES: DependencyInfo[] = [
     },
     installUrl: 'https://python.org',
   },
+  {
+    id: 'srt',
+    name: 'Sandbox Runtime',
+    description: 'Anthropic sandbox runtime for secure code execution',
+    required: false,
+    checkCommand: 'which srt',
+    versionCommand: 'srt --version 2>/dev/null || echo "unknown"',
+    installCommands: {
+      npm: 'npm install -g @anthropic-ai/sandbox-runtime',
+    },
+    installUrl: 'https://github.com/anthropics/sandbox-runtime',
+  },
 ];
 
 // ============================================================================

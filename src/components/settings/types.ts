@@ -34,6 +34,7 @@ export interface DependencyStatus {
   node: boolean;
   python: boolean;
   codex: boolean;
+  srt: boolean;
 }
 
 // MCP Server Config Types

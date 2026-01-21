@@ -17,6 +17,7 @@ export function WorkplaceSettings({
     node: true,
     python: true,
     codex: true,
+    srt: true,
   });
   const [checkingDeps, setCheckingDeps] = useState(true);
 
@@ -35,6 +36,7 @@ export function WorkplaceSettings({
             node: data.node ?? true,
             python: data.python ?? true,
             codex: data.codex ?? true,
+            srt: data.srt ?? true,
           });
         }
       } catch {
@@ -46,7 +48,11 @@ export function WorkplaceSettings({
   }, []);
 
   // Get current code environment
-  const currentCodeEnv = settings.sandboxEnabled ? 'codex' : 'local';
+  const currentCodeEnv = !settings.sandboxEnabled
+    ? 'local'
+    : settings.defaultSandboxProvider === 'claude'
+      ? 'claude'
+      : 'codex';
 
   const handleCodeEnvChange = (envId: string) => {
     if (envId === 'local') {
@@ -59,7 +65,13 @@ export function WorkplaceSettings({
       onSettingsChange({
         ...settings,
         sandboxEnabled: true,
-        defaultSandboxProvider: 'codex-cli',
+        defaultSandboxProvider: 'codex',
+      });
+    } else if (envId === 'claude') {
+      onSettingsChange({
+        ...settings,
+        sandboxEnabled: true,
+        defaultSandboxProvider: 'claude',
       });
     }
   };
@@ -214,6 +226,52 @@ export function WorkplaceSettings({
                     </p>
                     <p className="text-muted-foreground text-xs">
                       {t.settings.installCodexHint}
+                    </p>
+                  </div>
+                ) : (
+                  <span className="text-primary text-xs">✓</span>
+                )}
+              </div>
+            )}
+          </button>
+
+          {/* Claude Sandbox Option */}
+          <button
+            onClick={() => handleCodeEnvChange('claude')}
+            className={cn(
+              'flex cursor-pointer items-center justify-between rounded-lg border px-4 py-3 text-left transition-all',
+              'focus:outline-none focus-visible:outline-none',
+              currentCodeEnv === 'claude'
+                ? 'border-primary bg-primary/5'
+                : 'border-border hover:border-primary/50 hover:bg-accent/50'
+            )}
+          >
+            <div className="flex flex-col">
+              <span
+                className={cn(
+                  'text-sm font-medium',
+                  currentCodeEnv === 'claude'
+                    ? 'text-primary'
+                    : 'text-foreground'
+                )}
+              >
+                {t.settings.envClaudeSandbox}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {t.settings.envClaudeSandboxDescription}
+              </span>
+            </div>
+            {currentCodeEnv === 'claude' && (
+              <div className="flex flex-col items-end">
+                {checkingDeps ? (
+                  <Loader2 className="text-muted-foreground size-4 animate-spin" />
+                ) : !dependencies.srt ? (
+                  <div className="text-right">
+                    <p className="text-destructive text-xs font-medium">
+                      {t.settings.installSrt}
+                    </p>
+                    <p className="text-muted-foreground text-xs">
+                      {t.settings.installSrtHint}
                     </p>
                   </div>
                 ) : (

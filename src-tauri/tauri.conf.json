@@ -32,11 +32,14 @@
       "icons/icon.ico"
     ],
     "externalBin": [
+      "../src-api/dist/claude",
       "../src-api/dist/workany-api"
     ],
     "macOS": {
-      "signingIdentity": "Developer ID Application: MinHua Tang (JU9K7W6T6W)",
       "entitlements": "entitlements.plist"
-    }
+    },
+    "resources": [
+      "../src-api/dist/claude-bundle/**/*"
+    ]
   }
 }

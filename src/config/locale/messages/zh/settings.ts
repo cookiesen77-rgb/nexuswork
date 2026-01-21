@@ -43,13 +43,17 @@ export default {
   envLocal: '本机',
   envLocalDescription: '在本机运行',
   envCodexSandbox: 'Codex 沙盒',
-  envCodexSandboxDescription: '在隔离沙盒中运行',
+  envCodexSandboxDescription: '在 OpenAI 沙盒中运行',
+  envClaudeSandbox: 'Claude 沙盒',
+  envClaudeSandboxDescription: '在 Anthropic 沙盒中运行',
   installNode: 'Node.js 未安装',
   installNodeHint: '访问: https://nodejs.org',
   installPython: 'Python 未安装',
   installPythonHint: '访问: https://python.org',
   installCodex: 'Codex CLI 未安装',
   installCodexHint: '运行: npm install -g @openai/codex',
+  installSrt: 'Sandbox Runtime 未安装',
+  installSrtHint: '运行: npm install -g @anthropic-ai/sandbox-runtime',
 
   workingDirectory: '工作目录',
   workingDirectoryDescription:

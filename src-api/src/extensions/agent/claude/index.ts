@@ -5,10 +5,58 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, appendFileSync, mkdirSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
-import { homedir, platform } from 'os';
-import { join } from 'path';
+import { homedir, platform, arch } from 'os';
+import { join, dirname } from 'path';
+
+// ============================================================================
+// File-based logging for debugging in distributed apps
+// Logs are written to ~/.workany/logs/claude-agent.log
+// ============================================================================
+const LOG_DIR = join(homedir(), '.workany', 'logs');
+const LOG_FILE = join(LOG_DIR, 'claude-agent.log');
+
+function ensureLogDir() {
+  try {
+    if (!existsSync(LOG_DIR)) {
+      mkdirSync(LOG_DIR, { recursive: true });
+    }
+  } catch {
+    // Ignore errors
+  }
+}
+
+function logToFile(level: string, message: string, data?: unknown) {
+  try {
+    ensureLogDir();
+    const timestamp = new Date().toISOString();
+    let logLine = `[${timestamp}] [${level}] ${message}`;
+    if (data !== undefined) {
+      logLine += ` ${typeof data === 'string' ? data : JSON.stringify(data, null, 2)}`;
+    }
+    logLine += '\n';
+    appendFileSync(LOG_FILE, logLine);
+  } catch {
+    // Ignore logging errors
+  }
+}
+
+// Logger that writes to both console and file
+const logger = {
+  info: (message: string, data?: unknown) => {
+    console.log(message, data ?? '');
+    logToFile('INFO', message, data);
+  },
+  error: (message: string, data?: unknown) => {
+    console.error(message, data ?? '');
+    logToFile('ERROR', message, data);
+  },
+  warn: (message: string, data?: unknown) => {
+    console.warn(message, data ?? '');
+    logToFile('WARN', message, data);
+  },
+};
 import {
   createSdkMcpServer,
   Options,
@@ -92,6 +140,157 @@ async function installClaudeCode(): Promise<boolean> {
 }
 
 /**
+ * Check if running in a packaged Tauri app environment
+ */
+function isPackagedApp(): boolean {
+  // Check if running from a bundled binary (via pkg)
+  // @ts-expect-error - pkg specific property
+  if (process.pkg) {
+    return true;
+  }
+
+  // Check for Tauri environment
+  if (process.env.TAURI_ENV || process.env.TAURI) {
+    return true;
+  }
+
+  // Check if executable path contains typical app bundle paths
+  const execPath = process.execPath;
+  if (
+    execPath.includes('.app/Contents/MacOS') ||
+    execPath.includes('\\WorkAny\\') ||
+    execPath.includes('/WorkAny/')
+  ) {
+    return true;
+  }
+
+  // Check for production environment
+  if (process.env.NODE_ENV === 'production') {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Get the target triple for the current platform
+ */
+function getTargetTriple(): string {
+  const os = platform();
+  const cpuArch = arch();
+
+  if (os === 'darwin') {
+    return cpuArch === 'arm64'
+      ? 'aarch64-apple-darwin'
+      : 'x86_64-apple-darwin';
+  } else if (os === 'linux') {
+    return cpuArch === 'arm64'
+      ? 'aarch64-unknown-linux-gnu'
+      : 'x86_64-unknown-linux-gnu';
+  } else if (os === 'win32') {
+    return 'x86_64-pc-windows-msvc';
+  }
+
+  return 'unknown';
+}
+
+/**
+ * Get the path to bundled sidecar Claude Code executable
+ * The bundle structure is:
+ * - claude-{target} or claude (launcher script)
+ * - claude-bundle/
+ *   - node (Node.js binary)
+ *   - node_modules/@anthropic-ai/claude-code/ (Claude Code package)
+ */
+function getSidecarClaudeCodePath(): string | undefined {
+  const os = platform();
+  const targetTriple = getTargetTriple();
+  const claudeName = os === 'win32' ? `claude-${targetTriple}.exe` : `claude-${targetTriple}`;
+
+  // Get the directory where this process (workany-api) is running from
+  // In a packaged app, this would be the MacOS directory or the app directory
+  const execDir = dirname(process.execPath);
+
+  // Possible locations for the bundled Claude Code launcher
+  const possibleLauncherPaths = [
+    join(execDir, claudeName),
+    join(execDir, 'claude'),
+  ];
+
+  // For macOS .app bundles, also check Resources directory
+  if (os === 'darwin') {
+    const resourcesDir = join(execDir, '..', 'Resources');
+    possibleLauncherPaths.push(join(resourcesDir, claudeName));
+    possibleLauncherPaths.push(join(resourcesDir, 'claude'));
+  }
+
+  // For pkg bundled apps
+  // @ts-expect-error - pkg specific property
+  if (process.pkg) {
+    const pkgDir = dirname(process.argv[0]);
+    possibleLauncherPaths.push(join(pkgDir, claudeName));
+    possibleLauncherPaths.push(join(pkgDir, 'claude'));
+  }
+
+  // Check each possible launcher path
+  for (const launcherPath of possibleLauncherPaths) {
+    if (!existsSync(launcherPath)) continue;
+
+    // Get the directory containing the launcher
+    const launcherDir = dirname(launcherPath);
+
+    // Check if claude-bundle directory exists alongside the launcher
+    const bundleDir = join(launcherDir, 'claude-bundle');
+    const claudeCliPath = join(bundleDir, 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js');
+    const nodeBinPath = join(bundleDir, os === 'win32' ? 'node.exe' : 'node');
+
+    if (existsSync(bundleDir) && existsSync(claudeCliPath) && existsSync(nodeBinPath)) {
+      console.log(`[Claude] Found bundled Claude Code at: ${launcherPath}`);
+      console.log(`[Claude] Bundle directory: ${bundleDir}`);
+      console.log(`[Claude] Node.js binary: ${nodeBinPath}`);
+      return launcherPath;
+    }
+
+    // If no bundle dir but launcher exists, it might be a standalone binary
+    if (existsSync(launcherPath)) {
+      console.log(`[Claude] Found Claude Code launcher at: ${launcherPath}`);
+      return launcherPath;
+    }
+  }
+
+  // Also try direct check for claude-bundle in common locations
+  const bundleLocations = [
+    join(execDir, 'claude-bundle'),
+    join(execDir, '..', 'Resources', 'claude-bundle'),
+  ];
+
+  for (const bundleDir of bundleLocations) {
+    if (!existsSync(bundleDir)) continue;
+
+    const claudeCliPath = join(bundleDir, 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js');
+    const nodeBinPath = join(bundleDir, os === 'win32' ? 'node.exe' : 'node');
+
+    if (existsSync(claudeCliPath) && existsSync(nodeBinPath)) {
+      // Create a path that points to using the bundled node to run claude
+      // The launcher script should be in the parent directory
+      const launcherPath = join(dirname(bundleDir), claudeName);
+      if (existsSync(launcherPath)) {
+        console.log(`[Claude] Found bundled Claude Code launcher at: ${launcherPath}`);
+        return launcherPath;
+      }
+
+      // If no launcher, we can still return the path to use bundled node directly
+      console.log(`[Claude] Found Claude Code bundle at: ${bundleDir}`);
+      console.log(`[Claude] Will use bundled Node.js to run Claude Code`);
+      // Return a special marker that indicates we need to use bundled node
+      return `BUNDLE:${bundleDir}`;
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * Build extended PATH that includes common package manager bin locations
  */
 function getExtendedPath(): string {
@@ -125,7 +324,9 @@ function getExtendedPath(): string {
 
 /**
  * Get the path to the claude-code executable.
- * Only uses user-installed Claude Code (no bundled version).
+ * Priority order:
+ * 1. User-installed Claude Code (via which/where, npm global, common paths, nvm, etc.)
+ * 2. Bundled sidecar Claude Code (if app was built with --with-claude)
  */
 function getClaudeCodePath(): string | undefined {
   const os = platform();
@@ -267,20 +468,39 @@ function getClaudeCodePath(): string | undefined {
     return process.env.CLAUDE_CODE_PATH;
   }
 
-  console.warn('[Claude] Claude Code not found. Please install it.');
+  // Priority 5: Check for bundled sidecar Claude Code (if built with --with-claude)
+  const sidecarPath = getSidecarClaudeCodePath();
+  if (sidecarPath) {
+    console.log(`[Claude] Using bundled sidecar Claude Code: ${sidecarPath}`);
+    return sidecarPath;
+  }
+
+  console.warn('[Claude] Claude Code not found. Please install it or rebuild the app with --with-claude flag.');
   return undefined;
 }
 
 /**
  * Ensure Claude Code is available, install if necessary
+ * Note: If app was built with --with-claude, sidecar will be used automatically
  */
 async function ensureClaudeCode(): Promise<string | undefined> {
   let path = getClaudeCodePath();
 
   if (!path) {
-    console.log(
-      '[Claude] Claude Code not found, attempting automatic installation...'
-    );
+    // Check if we're in a packaged app without sidecar Claude Code
+    // In this case, we can still try to install if the user has npm available
+    if (isPackagedApp()) {
+      console.log(
+        '[Claude] Claude Code not found in packaged app. ' +
+        'The app was built without --with-claude flag. ' +
+        'Attempting automatic installation...'
+      );
+    } else {
+      console.log(
+        '[Claude] Claude Code not found, attempting automatic installation...'
+      );
+    }
+
     const installed = await installClaudeCode();
     if (installed) {
       // Re-check after installation
@@ -688,7 +908,7 @@ export class ClaudeAgent extends BaseAgent {
 
   /**
    * Build environment variables for the SDK query
-   * Supports custom API endpoint and API key
+   * Supports custom API endpoint and API key (including OpenRouter)
    * Also includes extended PATH for packaged app compatibility
    */
   private buildEnvConfig(): Record<string, string | undefined> {
@@ -698,12 +918,20 @@ export class ClaudeAgent extends BaseAgent {
     env.PATH = getExtendedPath();
 
     // Override with config values if provided
+    // Use ANTHROPIC_AUTH_TOKEN for API key (works with OpenRouter)
     if (this.config.apiKey) {
-      env.ANTHROPIC_API_KEY = this.config.apiKey;
-      console.log('[ClaudeAgent] Using custom API key from config');
+      env.ANTHROPIC_AUTH_TOKEN = this.config.apiKey;
+      // When using custom API (like OpenRouter), completely remove ANTHROPIC_API_KEY
+      // Empty string is different from undefined - must delete it entirely
+      if (this.config.baseUrl) {
+        delete env.ANTHROPIC_API_KEY;
+      }
+      logger.info('[ClaudeAgent] Using custom API key from config');
     } else {
-      console.log('[ClaudeAgent] Using API key from environment:', env.ANTHROPIC_API_KEY ? 'present' : 'missing');
+      logger.info('[ClaudeAgent] Using API key from environment:', env.ANTHROPIC_AUTH_TOKEN || env.ANTHROPIC_API_KEY ? 'present' : 'missing');
     }
+
+    // Set base URL for custom API endpoints (like OpenRouter)
     if (this.config.baseUrl) {
       env.ANTHROPIC_BASE_URL = this.config.baseUrl;
       console.log('[ClaudeAgent] Using custom base URL:', this.config.baseUrl);
@@ -711,7 +939,25 @@ export class ClaudeAgent extends BaseAgent {
       console.log('[ClaudeAgent] Using base URL from environment:', env.ANTHROPIC_BASE_URL || 'default');
     }
 
-    console.log('[ClaudeAgent] Model to use:', this.config.model || 'default from SDK');
+    // Set model configuration
+    if (this.config.model) {
+      env.ANTHROPIC_MODEL = this.config.model;
+      // Also set default models for different tiers (useful for OpenRouter model names)
+      env.ANTHROPIC_DEFAULT_SONNET_MODEL = this.config.model;
+      env.ANTHROPIC_DEFAULT_HAIKU_MODEL = this.config.model;
+      env.ANTHROPIC_DEFAULT_OPUS_MODEL = this.config.model;
+      console.log('[ClaudeAgent] Model configured:', this.config.model);
+    } else {
+      console.log('[ClaudeAgent] Model to use:', env.ANTHROPIC_MODEL || 'default from SDK');
+    }
+
+    // Debug: Log final environment variables for API configuration
+    logger.info('[ClaudeAgent] Final env config:', {
+      ANTHROPIC_AUTH_TOKEN: env.ANTHROPIC_AUTH_TOKEN ? `${env.ANTHROPIC_AUTH_TOKEN.slice(0, 10)}...` : 'not set',
+      ANTHROPIC_API_KEY: env.ANTHROPIC_API_KEY === undefined ? '(deleted)' : (env.ANTHROPIC_API_KEY === '' ? '(empty)' : `${env.ANTHROPIC_API_KEY.slice(0, 10)}...`),
+      ANTHROPIC_BASE_URL: env.ANTHROPIC_BASE_URL || 'not set',
+      ANTHROPIC_MODEL: env.ANTHROPIC_MODEL || 'not set',
+    });
 
     return env;
   }
@@ -838,11 +1084,17 @@ User's request (answer this AFTER reading the images):
     const userMcpServers = await loadMcpServers();
 
     // Build query options
+    // IMPORTANT: When using custom API (like OpenRouter), do NOT include 'user' in settingSources
+    // Otherwise ~/.claude/settings.json will override our custom env vars
+    const settingSources: ('user' | 'project')[] = this.config.baseUrl
+      ? ['project']  // Custom API: only use project settings, ignore user's global config
+      : ['user', 'project'];  // Default API: use both
+
     const queryOptions: Options = {
       cwd: sessionCwd,
       tools: { type: 'preset', preset: 'claude_code' },
       allowedTools: options?.allowedTools || ALLOWED_TOOLS,
-      settingSources: ['user', 'project'],
+      settingSources,
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       abortController: options?.abortController || session.abortController,
@@ -870,8 +1122,17 @@ User's request (answer this AFTER reading the images):
     // Only add mcpServers to options if there are any configured
     if (Object.keys(mcpServers).length > 0) {
       queryOptions.mcpServers = mcpServers;
-      console.log(`[Claude ${session.id}] MCP servers loaded: ${Object.keys(mcpServers).join(', ')}`);
+      logger.info(`[Claude ${session.id}] MCP servers loaded: ${Object.keys(mcpServers).join(', ')}`);
     }
+
+    // Log query start for debugging
+    logger.info(`[Claude ${session.id}] Starting query`, {
+      claudeCodePath,
+      model: this.config.model,
+      baseUrl: this.config.baseUrl,
+      hasApiKey: !!this.config.apiKey,
+      promptLength: enhancedPrompt.length,
+    });
 
     try {
       for await (const message of query({
@@ -888,10 +1149,59 @@ User's request (answer this AFTER reading the images):
         );
       }
     } catch (error) {
-      console.error(`[Claude ${session.id}] Error:`, error);
+      // Log detailed error information to file for debugging
+      logger.error(`[Claude ${session.id}] Error occurred`, {
+        error: error instanceof Error ? {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          ...(error as Record<string, unknown>),
+        } : error,
+        config: {
+          baseUrl: this.config.baseUrl || '(default)',
+          apiKey: this.config.apiKey ? 'configured' : 'not set',
+          model: this.config.model || '(default)',
+        },
+      });
+
+      // Build detailed error message for UI display
+      const errorParts: string[] = [];
+
+      if (error instanceof Error) {
+        errorParts.push(error.message);
+
+        // Add stderr if available (from subprocess errors)
+        const errWithStderr = error as Error & { stderr?: string; stdout?: string; code?: number };
+        if (errWithStderr.stderr) {
+          errorParts.push(`\nStderr: ${errWithStderr.stderr}`);
+        }
+        if (errWithStderr.stdout) {
+          errorParts.push(`\nStdout: ${errWithStderr.stdout}`);
+        }
+        if (errWithStderr.code !== undefined) {
+          errorParts.push(`\nExit code: ${errWithStderr.code}`);
+        }
+
+        // Add cause if available
+        if ('cause' in error && error.cause) {
+          const cause = error.cause;
+          if (cause instanceof Error) {
+            errorParts.push(`\nCause: ${cause.message}`);
+          } else {
+            errorParts.push(`\nCause: ${String(cause)}`);
+          }
+        }
+      } else {
+        errorParts.push(String(error));
+      }
+
+      // Add environment config info for debugging
+      const envDebug = `\n\nAPI Config:\n- BASE_URL: ${this.config.baseUrl || '(default)'}\n- API_KEY: ${this.config.apiKey ? 'configured' : 'not set'}\n- MODEL: ${this.config.model || '(default)'}\n\n日志文件: ~/.workany/logs/claude-agent.log`;
+      errorParts.push(envDebug);
+
       yield {
         type: 'error',
-        message: error instanceof Error ? error.message : String(error),
+        message: errorParts.join(''),
       };
     } finally {
       this.sessions.delete(session.id);
@@ -940,9 +1250,14 @@ If you need to create any files during planning, use this directory.
       return;
     }
 
+    // When using custom API, do NOT include 'user' in settingSources
+    const planSettingSources: ('user' | 'project')[] = this.config.baseUrl
+      ? ['project']
+      : ['project', 'user'];
+
     const queryOptions: Options = {
       cwd: sessionCwd, // Set working directory for planning phase
-      settingSources: ['project', 'user'],
+      settingSources: planSettingSources,
       allowedTools: [], // No tools in planning phase
       // Use bypassPermissions since we have no tools - avoids SDK's built-in plan file creation
       permissionMode: 'bypassPermissions',
@@ -1078,11 +1393,16 @@ If you need to create any files during planning, use this directory.
     const userMcpServers = await loadMcpServers();
 
     // Build query options
+    // When using custom API, do NOT include 'user' in settingSources
+    const execSettingSources: ('user' | 'project')[] = this.config.baseUrl
+      ? ['project']
+      : ['user', 'project'];
+
     const queryOptions: Options = {
       cwd: sessionCwd,
       tools: { type: 'preset', preset: 'claude_code' },
       allowedTools: options.allowedTools || ALLOWED_TOOLS,
-      settingSources: ['user', 'project'],
+      settingSources: execSettingSources,
       permissionMode: 'bypassPermissions',
       allowDangerouslySkipPermissions: true,
       abortController: options.abortController || session.abortController,

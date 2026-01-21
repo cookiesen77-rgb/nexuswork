@@ -44,13 +44,17 @@ export default {
   envLocal: 'Local',
   envLocalDescription: 'Run on your machine',
   envCodexSandbox: 'Codex Sandbox',
-  envCodexSandboxDescription: 'Run in isolated sandbox',
+  envCodexSandboxDescription: 'Run in OpenAI sandbox',
+  envClaudeSandbox: 'Claude Sandbox',
+  envClaudeSandboxDescription: 'Run in Anthropic sandbox',
   installNode: 'Node.js not installed',
   installNodeHint: 'Visit: https://nodejs.org',
   installPython: 'Python not installed',
   installPythonHint: 'Visit: https://python.org',
   installCodex: 'Codex CLI not installed',
   installCodexHint: 'Run: npm install -g @openai/codex',
+  installSrt: 'Sandbox Runtime not installed',
+  installSrtHint: 'Run: npm install -g @anthropic-ai/sandbox-runtime',
 
   workingDirectory: 'Working Directory',
   workingDirectoryDescription:

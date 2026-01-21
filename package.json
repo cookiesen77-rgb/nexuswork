@@ -25,7 +25,19 @@
     "tauri:build:linux": "pnpm build:api:binary:linux && tauri build --target x86_64-unknown-linux-gnu",
     "tauri:build:windows": "pnpm build:api:binary:windows && tauri build --target x86_64-pc-windows-msvc",
     "tauri:build:mac-intel": "pnpm build:api:binary:mac-intel && tauri build --target x86_64-apple-darwin",
-    "tauri:build:mac-arm": "pnpm build:api:binary:mac-arm && tauri build --target aarch64-apple-darwin"
+    "tauri:build:mac-arm": "pnpm build:api:binary:mac-arm && tauri build --target aarch64-apple-darwin",
+    "build:app": "./scripts/build.sh",
+    "build:app:with-claude": "./scripts/build.sh --with-claude",
+    "build:app:mac-arm": "./scripts/build.sh mac-arm",
+    "build:app:mac-arm:with-claude": "./scripts/build.sh mac-arm --with-claude",
+    "build:app:mac-arm:release": "./scripts/build.sh mac-arm --with-claude --sign",
+    "build:app:mac-intel": "./scripts/build.sh mac-intel",
+    "build:app:mac-intel:with-claude": "./scripts/build.sh mac-intel --with-claude",
+    "build:app:mac-intel:release": "./scripts/build.sh mac-intel --with-claude --sign",
+    "build:app:linux": "./scripts/build.sh linux",
+    "build:app:linux:with-claude": "./scripts/build.sh linux --with-claude",
+    "build:app:windows": "./scripts/build.sh windows",
+    "build:app:windows:with-claude": "./scripts/build.sh windows --with-claude"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",

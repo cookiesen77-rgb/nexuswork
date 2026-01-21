@@ -30,6 +30,8 @@ export type SandboxProviderType =
   | 'docker'
   | 'native'
   | 'e2b'
+  | 'codex'
+  | 'claude'
   | 'custom';
 
 export interface SandboxProviderSetting {
@@ -251,9 +253,9 @@ export const defaultSettings: Settings = {
   skillsPath: '', // Will be resolved to app data dir at init
   skillsEnabled: true, // Enable skills by default
   workDir: '', // Will be resolved to app data dir at init
-  sandboxEnabled: false,
+  sandboxEnabled: true,
   sandboxProviders: defaultSandboxProviders,
-  defaultSandboxProvider: 'native', // Default to native (no isolation)
+  defaultSandboxProvider: 'claude', // Default to Claude sandbox
   agentRuntimes: defaultAgentRuntimes,
   defaultAgentRuntime: 'claude', // Default to Claude Code
   theme: 'system',

@@ -20,7 +20,8 @@ export type BuiltinSandboxProviderType =
   | 'docker'
   | 'native'
   | 'e2b'
-  | 'codex';
+  | 'codex'
+  | 'claude';
 
 /**
  * Sandbox provider type - string to allow custom extensions

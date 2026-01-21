@@ -2,6 +2,7 @@
 import type { SandboxPlugin } from '@/core/sandbox/plugin';
 import { getSandboxRegistry } from '@/core/sandbox/registry';
 import { boxlitePlugin } from '@/extensions/sandbox/boxlite';
+import { claudePlugin } from '@/extensions/sandbox/claude';
 import { codexPlugin } from '@/extensions/sandbox/codex';
 import { nativePlugin } from '@/extensions/sandbox/native';
 
@@ -29,6 +30,11 @@ export {
   createCodexProvider,
   codexPlugin,
 } from '@/extensions/sandbox/codex';
+export {
+  ClaudeProvider,
+  createClaudeProvider,
+  claudePlugin,
+} from '@/extensions/sandbox/claude';
 
 /**
  * All built-in plugins
@@ -37,6 +43,7 @@ export const builtinPlugins: SandboxPlugin[] = [
   nativePlugin,
   boxlitePlugin,
   codexPlugin,
+  claudePlugin,
 ];
 
 /**
