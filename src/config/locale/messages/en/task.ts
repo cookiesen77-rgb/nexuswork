@@ -30,4 +30,14 @@ export default {
   openInFinder: 'Open in Finder',
   apiKeyError: 'Model configuration error. Please check your API Key',
   configureModel: 'Click to configure model',
+  // Plan
+  executionPlan: 'Execution Plan',
+  pendingApproval: 'Pending',
+  planCompleted: 'Completed',
+  goal: 'Goal',
+  steps: 'Steps',
+  stepsCount: 'Steps ({count})',
+  notes: 'Notes',
+  cancel: 'Cancel',
+  startExecution: 'Start',
 };

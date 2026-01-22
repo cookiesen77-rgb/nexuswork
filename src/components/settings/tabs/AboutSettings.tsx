@@ -107,7 +107,9 @@ export function AboutSettings() {
       {/* Links */}
       <div className="flex flex-wrap gap-3">
         <button
-          onClick={() => openExternalUrl('https://workany.ai?utm_source=workany_desktop')}
+          onClick={() =>
+            openExternalUrl('https://workany.ai?utm_source=workany_desktop')
+          }
           className="border-border text-foreground hover:bg-accent flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-2 text-sm transition-colors"
         >
           <Globe className="size-4" />

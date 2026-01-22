@@ -4,11 +4,35 @@ WorkAny is a desktop AI agent application that executes tasks through natural la
 
 **Website:** [workany.ai](https://workany.ai)
 
+![](./public/previews/home.png)
+
+## Previews
+
+- Organize files
+
+![](./public/previews/files.png)
+
+- Generate website
+
+![](./public/previews/web.png)
+
+- Generate document
+
+![](./public/previews/doc.png)
+
+- Generate table
+
+![](./public/previews/excel.png)
+
+- Generate slides
+
+![](./public/previews/ppt.png)
+
 ## Features
 
 - **Task Execution** - Natural language task input with real-time streaming
 - **Agent Runtime** - Powered by [Claude Code](https://github.com/anthropics/claude-code)
-- **Agent SDK** - Built on [Claude Agent SDK](https://github.com/anthropics/claude-code/tree/main/packages/agent)
+- **Agent SDK** - Built on [Claude Agent SDK](https://platform.claude.com/docs/en/agent-sdk/overview)
 - **Sandbox** - Isolated execution via [Codex CLI](https://github.com/openai/codex)
 - **Artifact Preview** - Live preview for HTML/React/code files
 - **MCP Support** - Model Context Protocol server integration

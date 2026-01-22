@@ -902,7 +902,8 @@ export function useAgent(): UseAgentReturn {
         const pollingTaskId = id;
         let lastMessageCount = 0;
         let stuckCount = 0; // Count how many polls without new messages
-        const MAX_STUCK_COUNT = 10; // Stop after 10 seconds of no progress
+        // Long timeout for stuck detection - tools like Bash can take minutes
+        const MAX_STUCK_COUNT = 300; // Stop after 5 minutes of no progress
 
         refreshIntervalRef.current = setInterval(async () => {
           const isStillActive = activeTaskIdRef.current === pollingTaskId;
@@ -964,22 +965,42 @@ export function useAgent(): UseAgentReturn {
               }));
               setMessages(agentMessages);
 
-              // Check if we're stuck (no new messages for too long)
+              // Check if there are pending tools (tool_use without matching tool_result)
+              const toolUseIds = new Set<string>();
+              const toolResultIds = new Set<string>();
+              for (const msg of dbMessages) {
+                if (msg.type === 'tool_use' && msg.tool_use_id) {
+                  toolUseIds.add(msg.tool_use_id);
+                } else if (msg.type === 'tool_result' && msg.tool_use_id) {
+                  toolResultIds.add(msg.tool_use_id);
+                }
+              }
+              const hasPendingTools = [...toolUseIds].some(
+                (id) => !toolResultIds.has(id)
+              );
+
+              // Check if we're stuck (no new messages for too long AND no pending tools)
               if (dbMessages.length === lastMessageCount) {
-                stuckCount++;
-                if (stuckCount >= MAX_STUCK_COUNT) {
-                  console.log(
-                    '[useAgent] Task appears stuck, stopping poll after',
-                    MAX_STUCK_COUNT,
-                    'seconds'
-                  );
-                  if (refreshIntervalRef.current) {
-                    clearInterval(refreshIntervalRef.current);
-                    refreshIntervalRef.current = null;
+                // Only count as stuck if there are no pending tools
+                if (!hasPendingTools) {
+                  stuckCount++;
+                  if (stuckCount >= MAX_STUCK_COUNT) {
+                    console.log(
+                      '[useAgent] Task appears stuck, stopping poll after',
+                      MAX_STUCK_COUNT,
+                      'seconds'
+                    );
+                    if (refreshIntervalRef.current) {
+                      clearInterval(refreshIntervalRef.current);
+                      refreshIntervalRef.current = null;
+                    }
+                    setIsRunning(false);
+                    setPhase('idle');
+                    return;
                   }
-                  setIsRunning(false);
-                  setPhase('idle');
-                  return;
+                } else {
+                  // Tools are pending, reset stuck counter
+                  stuckCount = 0;
                 }
               } else {
                 // Got new messages, reset stuck counter

@@ -1,5 +1,6 @@
 import type { TaskPlan } from '@/shared/hooks/useAgent';
 import { cn } from '@/shared/lib/utils';
+import { useLanguage } from '@/shared/providers/language-provider';
 import { Check, ListTodo, Play, X } from 'lucide-react';
 
 interface PlanApprovalProps {
@@ -15,6 +16,8 @@ export function PlanApproval({
   onApprove,
   onReject,
 }: PlanApprovalProps) {
+  const { t } = useLanguage();
+
   // Check if all steps are completed
   const isAllCompleted = plan.steps.every(
     (step) => step.status === 'completed'
@@ -37,14 +40,14 @@ export function PlanApproval({
           ) : (
             <ListTodo className="text-primary size-4" />
           )}
-          执行计划
+          {t.task.executionPlan}
           {isWaitingApproval ? (
             <span className="bg-primary/20 text-primary rounded-full px-2 py-0.5 text-xs">
-              待确认
+              {t.task.pendingApproval}
             </span>
           ) : isAllCompleted ? (
             <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-              已完成
+              {t.task.planCompleted}
             </span>
           ) : null}
         </div>
@@ -52,14 +55,14 @@ export function PlanApproval({
 
       {/* Goal */}
       <div className="space-y-1">
-        <p className="text-muted-foreground text-xs">目标</p>
+        <p className="text-muted-foreground text-xs">{t.task.goal}</p>
         <p className="text-foreground text-sm">{plan.goal}</p>
       </div>
 
       {/* Steps */}
       <div className="space-y-1">
         <p className="text-muted-foreground text-xs">
-          步骤 ({plan.steps.length})
+          {t.task.stepsCount.replace('{count}', String(plan.steps.length))}
         </p>
         <div className="space-y-2">
           {plan.steps.map((step, index) => (
@@ -107,7 +110,7 @@ export function PlanApproval({
       {/* Notes */}
       {plan.notes && (
         <div className="space-y-1">
-          <p className="text-muted-foreground text-xs">备注</p>
+          <p className="text-muted-foreground text-xs">{t.task.notes}</p>
           <p className="text-muted-foreground text-sm">{plan.notes}</p>
         </div>
       )}
@@ -120,14 +123,14 @@ export function PlanApproval({
             className="text-muted-foreground hover:text-foreground hover:bg-accent flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-colors"
           >
             <X className="size-4" />
-            取消
+            {t.task.cancel}
           </button>
           <button
             onClick={onApprove}
             className="bg-primary text-primary-foreground hover:bg-primary/90 flex cursor-pointer items-center gap-1.5 rounded-lg px-4 py-1.5 text-sm transition-colors"
           >
             <Play className="size-4" />
-            开始执行
+            {t.task.startExecution}
           </button>
         </div>
       )}

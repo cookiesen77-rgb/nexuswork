@@ -7,7 +7,6 @@ import type {
   Message,
   Session,
   Task,
-  TaskStatus,
   UpdateTaskInput,
 } from './types';
 
@@ -623,8 +622,21 @@ export async function updateTaskFromMessage(
   duration?: number
 ): Promise<void> {
   if (messageType === 'result') {
-    const status: TaskStatus = subtype === 'success' ? 'completed' : 'error';
-    await updateTask(taskId, { status, cost, duration });
+    // Only mark as completed for actual success
+    // error_max_turns means the task was interrupted, not completed
+    // Keep it in 'running' state so user knows to continue
+    if (subtype === 'success') {
+      await updateTask(taskId, { status: 'completed', cost, duration });
+    } else if (subtype === 'error_max_turns') {
+      // Task hit max turns limit - keep as running, just update cost/duration
+      await updateTask(taskId, { cost, duration });
+      console.log(
+        `[Database] Task ${taskId} hit max turns limit, keeping as running`
+      );
+    } else {
+      // Other errors
+      await updateTask(taskId, { status: 'error', cost, duration });
+    }
   } else if (messageType === 'error') {
     await updateTask(taskId, { status: 'error' });
   }

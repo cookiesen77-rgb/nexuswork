@@ -11,11 +11,7 @@ import * as path from 'path';
 import { promisify } from 'util';
 import { Hono } from 'hono';
 
-import {
-  getAllSkillsDirs,
-  getHomeDir,
-  getWorkanySkillsDir,
-} from '@/config/constants';
+import { getAllSkillsDirs, getHomeDir } from '@/config/constants';
 
 const execAsync = promisify(exec);
 

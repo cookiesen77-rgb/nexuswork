@@ -30,7 +30,7 @@ export interface McpHttpServerConfig {
 export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig;
 
 // WorkAny MCP Config file format
-interface WorkAnyMcpConfig {
+interface _WorkAnyMcpConfig {
   mcpServers: Record<
     string,
     {

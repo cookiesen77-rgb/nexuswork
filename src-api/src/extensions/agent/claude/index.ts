@@ -5,7 +5,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readdirSync } from 'fs';
 import { mkdir, writeFile } from 'fs/promises';
 import { arch, homedir, platform } from 'os';
 import { dirname, join } from 'path';
@@ -283,7 +283,6 @@ function getExtendedPath(): string {
   // Add nvm paths
   const nvmDir = join(home, '.nvm', 'versions', 'node');
   try {
-    const { readdirSync } = require('fs');
     if (existsSync(nvmDir)) {
       const versions = readdirSync(nvmDir);
       for (const version of versions) {
@@ -411,7 +410,6 @@ function getClaudeCodePath(): string | undefined {
   if (os !== 'win32') {
     const nvmDir = join(home, '.nvm', 'versions', 'node');
     try {
-      const { readdirSync } = require('fs');
       const versions = readdirSync(nvmDir);
       for (const version of versions) {
         const nvmPath = join(nvmDir, version, 'bin', 'claude');
@@ -1143,6 +1141,7 @@ User's request (answer this AFTER reading the images):
       env: this.buildEnvConfig(),
       model: this.config.model,
       pathToClaudeCodeExecutable: claudeCodePath,
+      maxTurns: 200, // Allow more agentic turns before stopping
     };
 
     // Initialize MCP servers with user-configured servers
@@ -1480,6 +1479,7 @@ If you need to create any files during planning, use this directory.
       env: this.buildEnvConfig(),
       model: this.config.model,
       pathToClaudeCodeExecutable: claudeCodePath,
+      maxTurns: 200, // Allow more agentic turns before stopping
     };
 
     // Initialize MCP servers with user-configured servers

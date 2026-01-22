@@ -423,9 +423,9 @@ SCRIPT_DIR="\$(cd "\$(dirname "\$0")" && pwd)"
 
 # Search for cli-bundle in multiple locations
 # 1. Same directory as launcher (development / Linux)
-# 2. ../Resources/cli-bundle (macOS app bundle)
-# 3. Resources subdirectory
-for DIR in "\$SCRIPT_DIR/cli-bundle" "\$SCRIPT_DIR/../Resources/cli-bundle" "\$SCRIPT_DIR/Resources/cli-bundle"; do
+# 2. ../Resources/_up_/src-api/dist/cli-bundle (macOS app bundle - Tauri resources)
+# 3. ../Resources/cli-bundle (legacy location)
+for DIR in "\$SCRIPT_DIR/cli-bundle" "\$SCRIPT_DIR/../Resources/_up_/src-api/dist/cli-bundle" "\$SCRIPT_DIR/../Resources/cli-bundle"; do
     if [ -f "\$DIR/node" ] && [ -d "\$DIR/node_modules" ]; then
         BUNDLE_DIR="\$DIR"
         break
@@ -436,7 +436,7 @@ if [ -z "\$BUNDLE_DIR" ]; then
     echo "Error: cli-bundle not found" >&2
     echo "Searched in:" >&2
     echo "  - \$SCRIPT_DIR/cli-bundle" >&2
-    echo "  - \$SCRIPT_DIR/../Resources/cli-bundle" >&2
+    echo "  - \$SCRIPT_DIR/../Resources/_up_/src-api/dist/cli-bundle" >&2
     exit 1
 fi
 
@@ -625,126 +625,96 @@ build_mac_intel() {
 
     pnpm tauri build --target "$target"
 
-    # Copy cli-bundle to app bundle (after Tauri build)
-    copy_cli_bundle_to_app "$target"
+    # Sign cli-bundle in app bundle Resources (after Tauri build)
+    sign_cli_bundle_in_app "$target"
 
     # Recreate DMG with bundle included
     recreate_dmg "$target"
-
-    # Config restore removed - no longer needed
 
     log_info "macOS Intel build completed!"
     log_info "Output: src-tauri/target/$target/release/bundle/"
 }
 
-# Copy cli-bundle to app bundle after Tauri build (unified bundle with both Claude and Codex)
-copy_cli_bundle_to_app() {
+# Sign cli-bundle in Resources and re-sign app bundle (unified bundle with both Claude and Codex)
+# Note: Tauri copies cli-bundle to Contents/Resources/_up_/src-api/dist/cli-bundle via resources config
+# We do NOT copy to Contents/MacOS as that causes signing failures due to symlinks in node_modules/.bin
+sign_cli_bundle_in_app() {
     local target="$1"
 
     if [ "$BUNDLE_CLI" != "true" ]; then
         return 0
     fi
 
-    log_info "Copying cli-bundle to app bundle..."
+    if [ "$SKIP_SIGNING" = "true" ]; then
+        log_info "Skipping cli-bundle signing (signing disabled)"
+        return 0
+    fi
 
-    local app_path=""
+    log_info "Signing cli-bundle in app bundle Resources..."
+
+    local app_bundle=""
     case "$target" in
         aarch64-apple-darwin|x86_64-apple-darwin)
-            app_path="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/WorkAny.app/Contents/MacOS"
+            app_bundle="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/WorkAny.app"
             ;;
         current)
-            # Try to find the app
-            app_path="$PROJECT_ROOT/src-tauri/target/release/bundle/macos/WorkAny.app/Contents/MacOS"
-            if [ ! -d "$app_path" ]; then
-                # Try with arch
-                local arch=$(uname -m)
-                if [ "$arch" = "arm64" ]; then
-                    app_path="$PROJECT_ROOT/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/WorkAny.app/Contents/MacOS"
-                else
-                    app_path="$PROJECT_ROOT/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/WorkAny.app/Contents/MacOS"
-                fi
+            local arch=$(uname -m)
+            if [ "$arch" = "arm64" ]; then
+                app_bundle="$PROJECT_ROOT/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/WorkAny.app"
+            else
+                app_bundle="$PROJECT_ROOT/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/WorkAny.app"
             fi
             ;;
         *)
-            log_warn "Platform $target may not need bundle copy"
+            log_warn "Platform $target may not need signing"
             return 0
             ;;
     esac
 
-    local bundle_src="$PROJECT_ROOT/src-api/dist/cli-bundle"
-
-    if [ ! -d "$bundle_src" ]; then
-        log_error "cli-bundle not found at $bundle_src"
-        return 1
-    fi
-
-    if [ ! -d "$app_path" ]; then
-        log_warn "App bundle not found at $app_path"
+    if [ ! -d "$app_bundle" ]; then
+        log_warn "App bundle not found at $app_bundle"
         return 0
     fi
 
-    # Copy cli-bundle to app bundle
-    cp -r "$bundle_src" "$app_path/"
-    log_info "Copied cli-bundle to $app_path/"
+    local signing_identity="${APPLE_SIGNING_IDENTITY:-Developer ID Application}"
+    local entitlements="$PROJECT_ROOT/src-tauri/entitlements.plist"
 
-    # Copy launcher scripts for both CLIs
-    for cli in claude codex; do
-        local launcher_src="$PROJECT_ROOT/src-api/dist/$cli"
-        if [ -f "$launcher_src" ]; then
-            cp "$launcher_src" "$app_path/$cli"
-            chmod +x "$app_path/$cli"
-            log_info "Copied $cli launcher script to $app_path/"
+    # Find cli-bundle in Resources (Tauri copies to _up_/src-api/dist/cli-bundle)
+    local cli_bundle_path="$app_bundle/Contents/Resources/_up_/src-api/dist/cli-bundle"
+
+    if [ -d "$cli_bundle_path" ]; then
+        log_info "  Found cli-bundle at: $cli_bundle_path"
+
+        # Remove symlinks in .bin directory that cause signing failures
+        local bin_dir="$cli_bundle_path/node_modules/.bin"
+        if [ -d "$bin_dir" ]; then
+            log_info "  Removing .bin symlinks that cause signing issues..."
+            rm -rf "$bin_dir"
         fi
-    done
 
-    # Verify
-    if [ -f "$app_path/cli-bundle/node" ]; then
-        log_info "cli-bundle successfully copied to app bundle"
+        # Sign all Mach-O binaries in cli-bundle
+        log_info "  Signing cli-bundle Mach-O binaries..."
+        find "$cli_bundle_path" -type f | while read -r file; do
+            if file "$file" 2>/dev/null | grep -q "Mach-O"; then
+                log_info "    Signing: $(basename "$file")"
+                codesign --force --timestamp --options runtime --sign "$signing_identity" "$file" 2>&1 || true
+            fi
+        done
     else
-        log_error "Failed to copy cli-bundle"
-        return 1
+        log_warn "  cli-bundle not found at expected location: $cli_bundle_path"
     fi
 
-    # Re-sign the entire app bundle after adding cli-bundle
-    # This is required because adding files invalidates the signature
-    if [ "$SKIP_SIGNING" != "true" ]; then
-        log_info "Re-signing app bundle after adding cli-bundle..."
+    # Re-sign the entire app bundle with entitlements
+    log_info "  Re-signing entire app bundle..."
+    codesign --force --deep --timestamp --options runtime \
+        --entitlements "$entitlements" \
+        --sign "$signing_identity" "$app_bundle"
 
-        local app_bundle=""
-        case "$target" in
-            aarch64-apple-darwin|x86_64-apple-darwin)
-                app_bundle="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/WorkAny.app"
-                ;;
-            current)
-                local arch=$(uname -m)
-                if [ "$arch" = "arm64" ]; then
-                    app_bundle="$PROJECT_ROOT/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/WorkAny.app"
-                else
-                    app_bundle="$PROJECT_ROOT/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/WorkAny.app"
-                fi
-                ;;
-        esac
-
-        if [ -d "$app_bundle" ]; then
-            local signing_identity="${APPLE_SIGNING_IDENTITY:-Developer ID Application}"
-            local entitlements="$PROJECT_ROOT/src-tauri/entitlements.plist"
-
-            # Sign all Mach-O binaries in cli-bundle first
-            log_info "  Signing cli-bundle binaries..."
-            find "$app_bundle/Contents/MacOS/cli-bundle" -type f 2>/dev/null | while read -r file; do
-                if file "$file" 2>/dev/null | grep -q "Mach-O"; then
-                    codesign --force --timestamp --options runtime --sign "$signing_identity" "$file" 2>&1 || true
-                fi
-            done
-
-            # Re-sign the entire app bundle with entitlements
-            log_info "  Re-signing entire app bundle..."
-            codesign --force --deep --timestamp --options runtime \
-                --entitlements "$entitlements" \
-                --sign "$signing_identity" "$app_bundle"
-
-            log_info "App bundle re-signed successfully"
-        fi
+    # Verify signature
+    if codesign --verify --deep --strict "$app_bundle" 2>&1; then
+        log_info "App bundle signature verified successfully"
+    else
+        log_warn "App bundle signature verification had warnings (may still work)"
     fi
 }
 
@@ -805,7 +775,52 @@ recreate_dmg() {
 
     if [ -f "$dmg_dir/$dmg_name" ]; then
         local dmg_size=$(du -h "$dmg_dir/$dmg_name" | cut -f1)
-        log_info "DMG recreated: $dmg_dir/$dmg_name ($dmg_size)"
+        log_info "DMG created: $dmg_dir/$dmg_name ($dmg_size)"
+
+        # Sign, notarize and staple the DMG if signing is enabled
+        if [ "$SKIP_SIGNING" != "true" ]; then
+            local signing_identity="${APPLE_SIGNING_IDENTITY:-Developer ID Application}"
+
+            # Sign the DMG
+            log_info "Signing DMG..."
+            codesign --force --timestamp --sign "$signing_identity" "$dmg_dir/$dmg_name"
+
+            # Notarize the DMG
+            log_info "Notarizing DMG (this may take a few minutes)..."
+            local notarize_output
+            notarize_output=$(xcrun notarytool submit "$dmg_dir/$dmg_name" \
+                --keychain-profile "notarytool-profile" \
+                --wait 2>&1) || {
+                # Try with explicit credentials if keychain profile fails
+                if [ -n "$APPLE_ID" ] && [ -n "$APPLE_PASSWORD" ] && [ -n "$APPLE_TEAM_ID" ]; then
+                    log_info "Trying notarization with explicit credentials..."
+                    notarize_output=$(xcrun notarytool submit "$dmg_dir/$dmg_name" \
+                        --apple-id "$APPLE_ID" \
+                        --password "$APPLE_PASSWORD" \
+                        --team-id "$APPLE_TEAM_ID" \
+                        --wait 2>&1)
+                else
+                    log_warn "DMG notarization failed. You may need to notarize manually."
+                    echo "$notarize_output"
+                    return 0
+                fi
+            }
+
+            if echo "$notarize_output" | grep -q "status: Accepted"; then
+                log_info "DMG notarization successful"
+
+                # Staple the notarization ticket
+                log_info "Stapling notarization ticket to DMG..."
+                xcrun stapler staple "$dmg_dir/$dmg_name" || {
+                    log_warn "Failed to staple DMG, but notarization was successful"
+                }
+            else
+                log_warn "DMG notarization may have failed:"
+                echo "$notarize_output"
+            fi
+        fi
+
+        log_info "DMG ready: $dmg_dir/$dmg_name"
     else
         log_error "Failed to recreate DMG"
         return 1
@@ -830,13 +845,11 @@ build_mac_arm() {
 
     pnpm tauri build --target "$target"
 
-    # Copy cli-bundle to app bundle (after Tauri build)
-    copy_cli_bundle_to_app "$target"
+    # Sign cli-bundle in app bundle Resources (after Tauri build)
+    sign_cli_bundle_in_app "$target"
 
     # Recreate DMG with bundle included
     recreate_dmg "$target"
-
-    # Config restore removed - no longer needed
 
     log_info "macOS Apple Silicon build completed!"
     log_info "Output: src-tauri/target/$target/release/bundle/"
@@ -855,10 +868,8 @@ build_current() {
 
     pnpm tauri build
 
-    # Copy cli-bundle to app bundle
-    copy_cli_bundle_to_app "current"
-
-    # Config restore removed - no longer needed
+    # Sign cli-bundle in app bundle Resources
+    sign_cli_bundle_in_app "current"
 
     log_info "Build completed!"
     log_info "Output: src-tauri/target/release/bundle/"

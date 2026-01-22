@@ -16,7 +16,7 @@ const ensureDir = async (filePath: string): Promise<void> => {
   const dir = path.dirname(filePath);
   try {
     await fs.mkdir(dir, { recursive: true });
-  } catch (err) {
+  } catch {
     // Directory might already exist
   }
 };

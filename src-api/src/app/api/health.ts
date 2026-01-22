@@ -1,4 +1,5 @@
 import { exec } from 'child_process';
+import { existsSync, readdirSync } from 'fs';
 import { promisify } from 'util';
 import { Hono } from 'hono';
 
@@ -137,9 +138,8 @@ function getExtendedPath(): string {
   // Add nvm paths
   const nvmDir = `${home}/.nvm/versions/node`;
   try {
-    const fs = require('fs');
-    if (fs.existsSync(nvmDir)) {
-      const versions = fs.readdirSync(nvmDir);
+    if (existsSync(nvmDir)) {
+      const versions = readdirSync(nvmDir);
       for (const version of versions) {
         paths.push(`${nvmDir}/${version}/bin`);
       }
