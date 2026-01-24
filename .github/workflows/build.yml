@@ -228,20 +228,22 @@ jobs:
           echo "---"
           find artifacts -type f -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" | head -20
 
+      - name: Checkout for version
+        uses: actions/checkout@v4
+        with:
+          path: repo
+
+      - name: Get version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./repo/package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
       - name: Flatten artifacts for release
         run: |
           mkdir -p release-files
           find artifacts -type f \( -name "*.deb" -o -name "*.rpm" -o -name "*.msi" -o -name "*.exe" -o -name "*.dmg" \) -exec cp {} release-files/ \;
           ls -la release-files/
-
-      - name: Checkout for version
-        uses: actions/checkout@v4
-
-      - name: Get version from package.json
-        id: version
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
