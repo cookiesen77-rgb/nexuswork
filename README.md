@@ -121,6 +121,12 @@ Some components are built with [ShipAny.ai](https://shipany.ai) - AI-powered ful
 - [Join Discord](https://discord.gg/rDSmZ8HS39)
 - [Follow on X](https://x.com/workanyai)
 
+# ❤️ Contributors
+
+<a href="https://github.com/workany-ai/workany/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=workany-ai/workany" />
+</a>
+
 ## ⭐️ Star History
 
 [![Star History Chart](https://api.star-history.com/svg?repos=workany-ai/workany&type=Timeline)](https://star-history.com/#workany-ai/workany&Timeline)
