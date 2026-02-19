@@ -184,7 +184,7 @@ export function SkillsSettings({
   const loadSkillsFromPath = async (skillsPath: string) => {
     setLoading(true);
     try {
-      // Get all skills directories (workany and claude)
+      // Get all skills directories (nexus and claude)
       const dirsResponse = await fetch(`${API_BASE_URL}/files/skills-dir`);
       const dirsData = await dirsResponse.json();
 
@@ -200,7 +200,7 @@ export function SkillsSettings({
         }[]) {
           if (dir.name === 'claude') {
             dirs.user = dir.path;
-          } else if (dir.name === 'workany') {
+          } else if (dir.name === 'nexus') {
             dirs.app = dir.path;
           }
         }
@@ -214,7 +214,7 @@ export function SkillsSettings({
           path: string;
           exists: boolean;
         }[]) {
-          // Only load from user directory (claude), skip app directory (workany)
+          // Only load from user directory (claude), skip app directory (nexus)
           if (dir.name !== 'claude' || !dir.exists) continue;
 
           try {
@@ -260,7 +260,7 @@ export function SkillsSettings({
                   allSkills.push({
                     id: `${dir.name}-${folder.name}`,
                     name: skillName,
-                    source: dir.name as 'claude' | 'workany',
+                    source: dir.name as 'claude' | 'nexus',
                     path: folder.path,
                     files: folder.children || [],
                     enabled: true,
@@ -327,7 +327,7 @@ export function SkillsSettings({
                   allSkills.push({
                     id: `custom-${folder.name}`,
                     name: skillName,
-                    source: 'workany',
+                    source: 'nexus',
                     path: folder.path,
                     files: folder.children || [],
                     enabled: true,

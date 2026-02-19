@@ -70,7 +70,7 @@ export interface MCPServerUI {
   url?: string;
   headers?: Record<string, string>;
   autoExecute?: boolean;
-  source?: 'workany' | 'claude';
+  source?: 'nexus' | 'claude';
 }
 
 // Skill types
@@ -84,7 +84,7 @@ export interface SkillFile {
 export interface SkillInfo {
   id: string;
   name: string;
-  source: 'claude' | 'workany';
+  source: 'claude' | 'nexus';
   path: string;
   files: SkillFile[];
   enabled: boolean;

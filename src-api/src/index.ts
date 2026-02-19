@@ -38,7 +38,7 @@ app.route('/mcp', mcpRoutes);
 // Root endpoint
 app.get('/', (c) => {
   return c.json({
-    name: 'WorkAny API',
+    name: 'Nexus API',
     version: '0.1.1',
     endpoints: {
       health: '/health',
@@ -103,7 +103,7 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Initialize and start server
 async function start() {
-  console.log(`🚀 WorkAny API starting...`);
+  console.log(`🚀 Nexus API starting...`);
 
   // Load configuration
   await loadConfig();

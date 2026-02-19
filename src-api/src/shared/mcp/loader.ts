@@ -1,12 +1,12 @@
 /**
  * MCP Config Loader
  *
- * Loads MCP server configuration from ~/.workany/mcp.json
+ * Loads MCP server configuration from ~/.nexus/mcp.json
  */
 
 import fs from 'fs/promises';
 
-import { getWorkanyMcpConfigPath } from '@/config/constants';
+import { getNexusMcpConfigPath } from '@/config/constants';
 
 // MCP Server Config Types (matching SDK types)
 export interface McpStdioServerConfig {
@@ -30,8 +30,8 @@ export interface McpSSEServerConfig {
 
 export type McpServerConfig = McpStdioServerConfig | McpHttpServerConfig | McpSSEServerConfig;
 
-// WorkAny MCP Config file format
-interface _WorkAnyMcpConfig {
+// Nexus MCP Config file format
+interface _NexusMcpConfig {
   mcpServers: Record<
     string,
     {
@@ -52,7 +52,7 @@ interface _WorkAnyMcpConfig {
  * Get the MCP config path
  */
 export function getMcpConfigPath(): string {
-  return getWorkanyMcpConfigPath();
+  return getNexusMcpConfigPath();
 }
 
 /**
@@ -123,7 +123,7 @@ export interface McpConfig {
 }
 
 /**
- * Load MCP servers configuration from ~/.workany/mcp.json
+ * Load MCP servers configuration from ~/.nexus/mcp.json
  *
  * @param mcpConfig Optional config to control loading
  * @returns Record of server name to config
@@ -138,7 +138,7 @@ export async function loadMcpServers(
   }
 
   const configPath = getMcpConfigPath();
-  const servers = await loadMcpServersFromFile(configPath, 'workany');
+  const servers = await loadMcpServersFromFile(configPath, 'nexus');
 
   const serverCount = Object.keys(servers).length;
   if (serverCount > 0) {

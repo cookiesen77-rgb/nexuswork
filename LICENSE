@@ -1,37 +1,37 @@
-# WorkAny Community License
+# Nexus Community License
 
-Copyright (c) 2026 ThinkAny, LLC. All rights reserved.
+Copyright (c) 2026 Nexus. All rights reserved.
 
 ---
 
-WorkAny is licensed under the WorkAny Community License, based on Apache License 2.0 with the following additional conditions:
+Nexus is licensed under the Nexus Community License, based on Apache License 2.0 with the following additional conditions:
 
 ## 1. Commercial Usage
 
-a. WorkAny may be utilized commercially, including as a backend service for other applications or as an application development platform for enterprises, without modifying the source code.
+a. Nexus may be utilized commercially, including as a backend service for other applications or as an application development platform for enterprises, without modifying the source code.
 
-b. A commercial license must be obtained from ThinkAny, LLC if you want to develop and distribute a derivative work based on WorkAny.
+b. A commercial license must be obtained from Nexus if you want to develop and distribute a derivative work based on Nexus.
 
-c. Should the conditions below be met, a commercial license must be obtained from ThinkAny, LLC:
+c. Should the conditions below be met, a commercial license must be obtained from Nexus:
 
-   - **Multi-tenant Service**: Unless explicitly authorized by ThinkAny, LLC in writing, you may not use the WorkAny source code to operate a multi-tenant service where multiple users or organizations share a single deployment.
+   - **Multi-tenant Service**: Unless explicitly authorized by Nexus in writing, you may not use the Nexus source code to operate a multi-tenant service where multiple users or organizations share a single deployment.
 
-   - **Logo and Copyright Information**: In the process of using WorkAny's frontend, you may not remove or modify the logo or copyright information in the WorkAny interface. This restriction is inapplicable to uses of WorkAny that do not involve its frontend.
-     - Frontend Definition: For the purposes of this license, the "frontend" of WorkAny includes all components located in the `src/` directory when running WorkAny from the source code.
+   - **Logo and Copyright Information**: In the process of using Nexus's frontend, you may not remove or modify the logo or copyright information in the Nexus interface. This restriction is inapplicable to uses of Nexus that do not involve its frontend.
+     - Frontend Definition: For the purposes of this license, the "frontend" of Nexus includes all components located in the `src/` directory when running Nexus from the source code.
 
 ## 2. Contributor Agreement
 
 As a contributor, you agree that:
 
-a. ThinkAny, LLC may adjust the open-source agreement to be more strict or relaxed as deemed necessary.
+a. Nexus may adjust the open-source agreement to be more strict or relaxed as deemed necessary.
 
-b. Your contributed code may be used for commercial purposes, including but not limited to cloud services and enterprise editions operated by ThinkAny, LLC.
+b. Your contributed code may be used for commercial purposes, including but not limited to cloud services and enterprise editions operated by Nexus.
 
 ## 3. Restrictions
 
-a. You may not use the WorkAny name, logo, or trademarks to promote derivative products without prior written consent.
+a. You may not use the Nexus name, logo, or trademarks to promote derivative products without prior written consent.
 
-b. You may not represent your derivative work as being endorsed or certified by ThinkAny, LLC.
+b. You may not represent your derivative work as being endorsed or certified by Nexus.
 
 ## 4. Apache License 2.0
 
@@ -45,4 +45,4 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 For licensing inquiries, please contact: support@thinkany.ai
 
-© 2026 ThinkAny, LLC. All rights reserved.
+© 2026 Nexus. All rights reserved.

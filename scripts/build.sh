@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# WorkAny Build Script
+# Nexus Build Script
 # Usage: ./scripts/build.sh [platform] [--with-claude]
 # Platforms: linux, windows, mac-intel, mac-arm, all
 # Options:
@@ -85,7 +85,7 @@ build_api_sidecar() {
             ;;
         x86_64-pc-windows-gnu)
             # Cross-compile Windows binary using pkg (same as MSVC, just different output name)
-            pnpm bundle && pnpm exec pkg dist/bundle.cjs --targets node20-win-x64 --output dist/workany-api-x86_64-pc-windows-gnu.exe --options expose-gc
+            pnpm bundle && pnpm exec pkg dist/bundle.cjs --targets node20-win-x64 --output dist/nexus-api-x86_64-pc-windows-gnu.exe --options expose-gc
             ;;
         x86_64-apple-darwin)
             pnpm run build:binary:mac-intel
@@ -185,7 +185,7 @@ bundle_cli_tools() {
     fi
 
     # Cache directory for Node.js downloads
-    local cache_dir="$HOME/.workany/cache"
+    local cache_dir="$HOME/.nexus/cache"
     local cached_node="$cache_dir/${node_filename}/node${node_ext}"
     mkdir -p "$cache_dir"
 
@@ -705,7 +705,7 @@ build_windows() {
 
     log_info "Windows build completed!"
     if [ "$target" = "x86_64-pc-windows-gnu" ]; then
-        log_info "Output: src-tauri/target/$target/release/workany.exe"
+        log_info "Output: src-tauri/target/$target/release/nexus.exe"
         log_info "Note: MSI/NSIS installers require building on Windows"
     else
         log_info "Output: src-tauri/target/$target/release/bundle/"
@@ -770,14 +770,14 @@ sign_cli_bundle_in_app() {
     local app_bundle=""
     case "$target" in
         aarch64-apple-darwin|x86_64-apple-darwin)
-            app_bundle="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/WorkAny.app"
+            app_bundle="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/Nexus.app"
             ;;
         current)
             local arch=$(uname -m)
             if [ "$arch" = "arm64" ]; then
-                app_bundle="$PROJECT_ROOT/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/WorkAny.app"
+                app_bundle="$PROJECT_ROOT/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Nexus.app"
             else
-                app_bundle="$PROJECT_ROOT/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/WorkAny.app"
+                app_bundle="$PROJECT_ROOT/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Nexus.app"
             fi
             ;;
         *)
@@ -867,17 +867,17 @@ notarize_app() {
     local app_path=""
     case "$target" in
         aarch64-apple-darwin)
-            app_path="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/WorkAny.app"
+            app_path="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/Nexus.app"
             ;;
         x86_64-apple-darwin)
-            app_path="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/WorkAny.app"
+            app_path="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/Nexus.app"
             ;;
         current)
             local arch=$(uname -m)
             if [ "$arch" = "arm64" ]; then
-                app_path="$PROJECT_ROOT/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/WorkAny.app"
+                app_path="$PROJECT_ROOT/src-tauri/target/aarch64-apple-darwin/release/bundle/macos/Nexus.app"
             else
-                app_path="$PROJECT_ROOT/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/WorkAny.app"
+                app_path="$PROJECT_ROOT/src-tauri/target/x86_64-apple-darwin/release/bundle/macos/Nexus.app"
             fi
             ;;
         *)
@@ -950,14 +950,14 @@ recreate_dmg() {
 
     case "$target" in
         aarch64-apple-darwin)
-            app_path="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/WorkAny.app"
+            app_path="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/Nexus.app"
             dmg_dir="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/dmg"
-            dmg_name="WorkAny_${version}_aarch64.dmg"
+            dmg_name="Nexus_${version}_aarch64.dmg"
             ;;
         x86_64-apple-darwin)
-            app_path="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/WorkAny.app"
+            app_path="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/macos/Nexus.app"
             dmg_dir="$PROJECT_ROOT/src-tauri/target/$target/release/bundle/dmg"
-            dmg_name="WorkAny_${version}_x64.dmg"
+            dmg_name="Nexus_${version}_x64.dmg"
             ;;
         *)
             log_warn "DMG recreation not needed for $target"
@@ -980,10 +980,10 @@ recreate_dmg() {
     ln -s /Applications "$temp_dir/Applications"
 
     # Hide .app extension in Finder
-    SetFile -a E "$temp_dir/WorkAny.app" 2>/dev/null || true
+    SetFile -a E "$temp_dir/Nexus.app" 2>/dev/null || true
 
     log_info "Creating DMG with Applications shortcut..."
-    hdiutil create -volname WorkAny -srcfolder "$temp_dir" -ov -format UDZO "$dmg_dir/$dmg_name"
+    hdiutil create -volname Nexus -srcfolder "$temp_dir" -ov -format UDZO "$dmg_dir/$dmg_name"
 
     # Clean up temp directory
     rm -rf "$temp_dir"
@@ -1114,7 +1114,7 @@ build_current() {
 
 # Show help
 show_help() {
-    echo "WorkAny Build Script"
+    echo "Nexus Build Script"
     echo ""
     echo "Usage: ./scripts/build.sh [platform] [options]"
     echo ""

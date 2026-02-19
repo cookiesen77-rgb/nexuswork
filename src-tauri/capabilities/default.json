@@ -26,7 +26,7 @@
     {
       "identifier": "fs:scope",
       "allow": [
-        "$HOME/.workany/**",
+        "$HOME/.nexus/**",
         "$HOME/.claude/**",
         "$DOWNLOAD/**",
         "$DESKTOP/**",
@@ -39,7 +39,7 @@
       "identifier": "shell:allow-execute",
       "allow": [
         {
-          "name": "workany-api",
+          "name": "nexus-api",
           "sidecar": true
         },
         {

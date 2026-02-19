@@ -127,7 +127,7 @@ function checkSidecarClaudeCode(): boolean {
   const claudeName =
     os === 'win32' ? `claude-${targetTriple}.exe` : `claude-${targetTriple}`;
 
-  // Get the directory where this process (workany-api) is running from
+  // Get the directory where this process (nexus-api) is running from
   const execDir = dirname(process.execPath);
 
   // Possible locations for the bundled Claude Code launcher

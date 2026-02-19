@@ -1,8 +1,8 @@
-# WorkAny
+# Nexus
 
-WorkAny is a desktop AI agent application that executes tasks through natural language. It provides real-time code generation, tool execution, and workspace management.
+Nexus is a desktop AI agent application that executes tasks through natural language. It provides real-time code generation, tool execution, and workspace management.
 
-**Website:** [workany.ai](https://workany.ai)
+**Website:** [nexus.ai](https://nexus.ai)
 
 ![](./public/imgs/home.png)
 
@@ -38,11 +38,11 @@ WorkAny is a desktop AI agent application that executes tasks through natural la
 
 ## ❤️ Sponsor
 
-<a href='https://302.ai/?utm_source=workany_github' target='_blank'>
+<a href='https://302.ai/?utm_source=nexus_github' target='_blank'>
   <img src="https://github.com/user-attachments/assets/a03edf82-2031-4f23-bdb8-bfc0bfd168a4" width="100%" alt="icon"/>
 </a>
 
-[302.AI](https://302.ai/?utm_source=workany_github) is a pay-as-you-go AI application platform that offers the most comprehensive AI APIs and online applications available.
+[302.AI](https://302.ai/?utm_source=nexus_github) is a pay-as-you-go AI application platform that offers the most comprehensive AI APIs and online applications available.
 
 <a href='https://platform.minimax.io/subscribe/coding-plan?code=9hgHKlPO3G&source=link' target='_blank'>
   <img src="https://github.com/user-attachments/assets/1f925b1a-0a87-40f8-a82f-ae531181c80d" width="100%" alt="icon"/>
@@ -50,7 +50,7 @@ WorkAny is a desktop AI agent application that executes tasks through natural la
 
 [MiniMax-M2.1](https://platform.minimax.io/subscribe/coding-plan?code=9hgHKlPO3G&source=link) is an open-source SOTA model that excels at coding, navigating digital environments, and handling long, multi-step tasks. Click to get an exclusive 12% off the MiniMax Coding Plan.
 
-> If you want to sponsor this project, please contact us via email: [hello@workany.ai](mailto:hello@workany.ai)
+> If you want to sponsor this project, please contact us via email: [hello@nexus.ai](mailto:hello@nexus.ai)
 
 ## Features
 
@@ -66,7 +66,7 @@ WorkAny is a desktop AI agent application that executes tasks through natural la
 ## Project Structure
 
 ```
-workany/
+nexus/
 ├── src/                # Frontend (React + TypeScript)
 ├── src-api/            # Backend API (Hono + Claude Agent SDK)
 └── src-tauri/          # Desktop app (Tauri + Rust)
@@ -120,20 +120,20 @@ Some components are built with [ShipAny.ai](https://shipany.ai) - AI-powered ful
 ## Community
 
 - [Join Discord](https://discord.gg/rDSmZ8HS39)
-- [Follow on X](https://x.com/workanyai)
+- [Follow on X](https://x.com/nexusai)
 
 ## ❤️ Contributors
 
-<a href="https://github.com/workany-ai/workany/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=workany-ai/workany" />
+<a href="https://github.com/nexus-ai/nexus/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=nexus-ai/nexus" />
 </a>
 
 ## ⭐️ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=workany-ai/workany&type=Timeline)](https://star-history.com/#workany-ai/workany&Timeline)
+[![Star History Chart](https://api.star-history.com/svg?repos=nexus-ai/nexus&type=Timeline)](https://star-history.com/#nexus-ai/nexus&Timeline)
 
 ## License
 
-This project is licensed under the [WorkAny Community License](LICENSE), based on Apache License 2.0 with additional conditions.
+This project is licensed under the [Nexus Community License](LICENSE), based on Apache License 2.0 with additional conditions.
 
 © 2026 ThinkAny, LLC. All rights reserved.

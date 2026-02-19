@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# WorkAny Version Management Script
+# Nexus Version Management Script
 # Usage:
 #   ./scripts/version.sh          # Show current version
 #   ./scripts/version.sh 0.2.0    # Set new version and sync to all files

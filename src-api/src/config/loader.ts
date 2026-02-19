@@ -207,7 +207,7 @@ class ConfigLoader {
    */
   private findConfigFile(): string | null {
     const searchPaths = [
-      process.env.WORKANY_CONFIG,
+      process.env.NEXUS_CONFIG,
       ...CONFIG_SEARCH_PATHS,
       getConfigPath(), // Platform-specific config path
       path.join(process.env.HOME || '', APP_DIR_NAME, 'config.json'), // Legacy fallback

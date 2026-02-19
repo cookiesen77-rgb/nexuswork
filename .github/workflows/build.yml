@@ -144,7 +144,7 @@ jobs:
         run: |
           cd src-api
           mkdir -p dist
-          bun build src/index.ts --compile --target=${{ matrix.bun_target }} --outfile dist/workany-api-${{ matrix.rust_target }}
+          bun build src/index.ts --compile --target=${{ matrix.bun_target }} --outfile dist/nexus-api-${{ matrix.rust_target }}
 
       - name: Build API sidecar (Windows)
         if: steps.check.outputs.skip != 'true' && matrix.platform == 'windows'
@@ -152,7 +152,7 @@ jobs:
         run: |
           cd src-api
           mkdir -p dist
-          bun build src/index.ts --compile --target=${{ matrix.bun_target }} --outfile dist/workany-api-${{ matrix.rust_target }}.exe
+          bun build src/index.ts --compile --target=${{ matrix.bun_target }} --outfile dist/nexus-api-${{ matrix.rust_target }}.exe
 
       - name: Bundle CLI tools (Unix)
         if: steps.check.outputs.skip != 'true' && matrix.platform != 'windows'
@@ -231,13 +231,13 @@ jobs:
           cd ..
 
           # Create claude launcher script using base64 decode (avoids escape issues)
-          # Supports: macOS (Resources), Linux (/usr/lib/WorkAny/)
+          # Supports: macOS (Resources), Linux (/usr/lib/Nexus/)
           echo "IyEvYmluL2Jhc2gKU0NSSVBUX0RJUj0iJChjZCAiJChkaXJuYW1lICIkMCIpIiAmJiBwd2QpIgpmb3IgRElSIGluICIkU0NSSVBUX0RJUi9jbGktYnVuZGxlIiBcCiAgICAgICAgICAgIiRTQ1JJUFRfRElSL191cF8vc3JjLWFwaS9kaXN0L2NsaS1idW5kbGUiIFwKICAgICAgICAgICAiJFNDUklQVF9ESVIvLi4vUmVzb3VyY2VzL191cF8vc3JjLWFwaS9kaXN0L2NsaS1idW5kbGUiIFwKICAgICAgICAgICAiJFNDUklQVF9ESVIvLi4vUmVzb3VyY2VzL2NsaS1idW5kbGUiIFwKICAgICAgICAgICAiJFNDUklQVF9ESVIvLi4vbGliL1dvcmtBbnkvX3VwXy9zcmMtYXBpL2Rpc3QvY2xpLWJ1bmRsZSIgXAogICAgICAgICAgICIkU0NSSVBUX0RJUi8uLi9saWIvd29ya2FueS9fdXBfL3NyYy1hcGkvZGlzdC9jbGktYnVuZGxlIjsgZG8KICAgIGlmIFsgLWYgIiRESVIvbm9kZSIgXSAmJiBbIC1kICIkRElSL25vZGVfbW9kdWxlcyIgXTsgdGhlbgogICAgICAgIEJVTkRMRV9ESVI9IiRESVIiCiAgICAgICAgYnJlYWsKICAgIGZpCmRvbmUKaWYgWyAteiAiJEJVTkRMRV9ESVIiIF07IHRoZW4KICAgIGVjaG8gIkVycm9yOiBjbGktYnVuZGxlIG5vdCBmb3VuZC4gU2VhcmNoZWQgcGF0aHM6IiA+JjIKICAgIGVjaG8gIiAgLSAkU0NSSVBUX0RJUi9jbGktYnVuZGxlIiA+JjIKICAgIGVjaG8gIiAgLSAkU0NSSVBUX0RJUi9fdXBfL3NyYy1hcGkvZGlzdC9jbGktYnVuZGxlIiA+JjIKICAgIGVjaG8gIiAgLSAkU0NSSVBUX0RJUi8uLi9SZXNvdXJjZXMvX3VwXy9zcmMtYXBpL2Rpc3QvY2xpLWJ1bmRsZSIgPiYyCiAgICBlY2hvICIgIC0gJFNDUklQVF9ESVIvLi4vbGliL1dvcmtBbnkvX3VwXy9zcmMtYXBpL2Rpc3QvY2xpLWJ1bmRsZSIgPiYyCiAgICBleGl0IDEKZmkKZXhlYyAiJEJVTkRMRV9ESVIvbm9kZSIgIiRCVU5ETEVfRElSL25vZGVfbW9kdWxlcy9AYW50aHJvcGljLWFpL2NsYXVkZS1jb2RlL2NsaS5qcyIgIiRAIgo=" | base64 -d > claude
           chmod +x claude
           cp claude "claude-${{ matrix.rust_target }}"
 
           # Create codex launcher script using base64 decode
-          # Supports: macOS (Resources), Linux (/usr/lib/WorkAny/)
+          # Supports: macOS (Resources), Linux (/usr/lib/Nexus/)
           echo "IyEvYmluL2Jhc2gKU0NSSVBUX0RJUj0iJChjZCAiJChkaXJuYW1lICIkMCIpIiAmJiBwd2QpIgpmb3IgRElSIGluICIkU0NSSVBUX0RJUi9jbGktYnVuZGxlIiBcCiAgICAgICAgICAgIiRTQ1JJUFRfRElSL191cF8vc3JjLWFwaS9kaXN0L2NsaS1idW5kbGUiIFwKICAgICAgICAgICAiJFNDUklQVF9ESVIvLi4vUmVzb3VyY2VzL191cF8vc3JjLWFwaS9kaXN0L2NsaS1idW5kbGUiIFwKICAgICAgICAgICAiJFNDUklQVF9ESVIvLi4vUmVzb3VyY2VzL2NsaS1idW5kbGUiIFwKICAgICAgICAgICAiJFNDUklQVF9ESVIvLi4vbGliL1dvcmtBbnkvX3VwXy9zcmMtYXBpL2Rpc3QvY2xpLWJ1bmRsZSIgXAogICAgICAgICAgICIkU0NSSVBUX0RJUi8uLi9saWIvd29ya2FueS9fdXBfL3NyYy1hcGkvZGlzdC9jbGktYnVuZGxlIjsgZG8KICAgIGlmIFsgLWYgIiRESVIvbm9kZSIgXSAmJiBbIC1kICIkRElSL25vZGVfbW9kdWxlcyIgXTsgdGhlbgogICAgICAgIEJVTkRMRV9ESVI9IiRESVIiCiAgICAgICAgYnJlYWsKICAgIGZpCmRvbmUKaWYgWyAteiAiJEJVTkRMRV9ESVIiIF07IHRoZW4KICAgIGVjaG8gIkVycm9yOiBjbGktYnVuZGxlIG5vdCBmb3VuZC4gU2VhcmNoZWQgcGF0aHM6IiA+JjIKICAgIGVjaG8gIiAgLSAkU0NSSVBUX0RJUi9jbGktYnVuZGxlIiA+JjIKICAgIGVjaG8gIiAgLSAkU0NSSVBUX0RJUi9fdXBfL3NyYy1hcGkvZGlzdC9jbGktYnVuZGxlIiA+JjIKICAgIGVjaG8gIiAgLSAkU0NSSVBUX0RJUi8uLi9SZXNvdXJjZXMvX3VwXy9zcmMtYXBpL2Rpc3QvY2xpLWJ1bmRsZSIgPiYyCiAgICBlY2hvICIgIC0gJFNDUklQVF9ESVIvLi4vbGliL1dvcmtBbnkvX3VwXy9zcmMtYXBpL2Rpc3QvY2xpLWJ1bmRsZSIgPiYyCiAgICBleGl0IDEKZmkKZXhlYyAiJEJVTkRMRV9ESVIvbm9kZSIgIiRCVU5ETEVfRElSL25vZGVfbW9kdWxlcy9Ab3BlbmFpL2NvZGV4L2Jpbi9jb2RleC5qcyIgIiRAIgo=" | base64 -d > codex
           chmod +x codex
           cp codex "codex-${{ matrix.rust_target }}"
@@ -492,7 +492,7 @@ jobs:
         if: steps.check.outputs.skip != 'true' && matrix.platform == 'linux'
         uses: actions/upload-artifact@v4
         with:
-          name: WorkAny-${{ matrix.name }}
+          name: Nexus-${{ matrix.name }}
           path: |
             src-tauri/target/${{ matrix.tauri_target }}/release/bundle/deb/*.deb
             src-tauri/target/${{ matrix.tauri_target }}/release/bundle/rpm/*.rpm
@@ -502,7 +502,7 @@ jobs:
         if: steps.check.outputs.skip != 'true' && matrix.platform == 'windows'
         uses: actions/upload-artifact@v4
         with:
-          name: WorkAny-${{ matrix.name }}
+          name: Nexus-${{ matrix.name }}
           path: |
             src-tauri/target/${{ matrix.tauri_target }}/release/bundle/msi/*.msi
             src-tauri/target/${{ matrix.tauri_target }}/release/bundle/nsis/*.exe
@@ -512,7 +512,7 @@ jobs:
         if: steps.check.outputs.skip != 'true' && startsWith(matrix.platform, 'macos')
         uses: actions/upload-artifact@v4
         with:
-          name: WorkAny-${{ matrix.name }}
+          name: Nexus-${{ matrix.name }}
           path: |
             src-tauri/target/${{ matrix.tauri_target }}/release/bundle/dmg/*.dmg
             src-tauri/target/${{ matrix.tauri_target }}/release/bundle/macos/*.app
@@ -562,7 +562,7 @@ jobs:
           draft: true
           generate_release_notes: true
           tag_name: v${{ steps.version.outputs.version }}
-          name: WorkAny v${{ steps.version.outputs.version }}
+          name: Nexus v${{ steps.version.outputs.version }}
           files: release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

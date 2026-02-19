@@ -205,7 +205,7 @@ export interface Settings {
   mcpConfigPath: string;
   mcpEnabled: boolean; // Enable MCP mounting during agent conversations
   mcpUserDirEnabled: boolean; // Enable loading MCP servers from user directory (claude config)
-  mcpAppDirEnabled: boolean; // Enable loading MCP servers from app directory (workany config)
+  mcpAppDirEnabled: boolean; // Enable loading MCP servers from app directory (nexus config)
 
   // Skills settings
   skillsPath: string;
@@ -243,82 +243,22 @@ export interface Settings {
 // Default providers with full configuration
 export const defaultProviders: AIProvider[] = [
   {
-    id: 'openrouter',
-    name: 'OpenRouter',
+    id: 'nexus',
+    name: 'Nexus',
     apiKey: '',
-    baseUrl: 'https://openrouter.ai/api',
+    baseUrl: 'https://nexusapi.cn',
     enabled: true,
-    models: ['anthropic/claude-sonnet-4.5', 'anthropic/claude-opus-4.5'],
-    icon: 'O',
-    apiKeyUrl: 'https://openrouter.ai/keys',
-    canDelete: true,
-  },
-  {
-    id: 'minimax',
-    name: 'MiniMax',
-    apiKey: '',
-    baseUrl: 'https://api.minimax.io/anthropic',
-    enabled: true,
-    models: ['MiniMax-M2.1'],
-    icon: 'M',
-    apiKeyUrl:
-      'https://platform.minimax.io/subscribe/coding-plan?code=9hgHKlPO3G&source=link',
-    canDelete: true,
-  },
-  {
-    id: 'zai',
-    name: 'Z.ai',
-    apiKey: '',
-    baseUrl: 'https://api.z.ai/api/anthropic',
-    enabled: true,
-    models: ['glm-4.7'],
-    icon: 'Z',
-    apiKeyUrl: 'https://z.ai/subscribe?ic=7YS469UOXD',
-    canDelete: true,
-  },
-  {
-    id: 'volcengine',
-    name: 'Volcengine',
-    apiKey: '',
-    baseUrl: 'https://ark.cn-beijing.volces.com/api/coding',
-    enabled: true,
-    models: ['ark-code-latest'],
-    icon: 'V',
-    apiKeyUrl: 'https://volcengine.com/L/Sq5rSgyFu_E',
-    canDelete: true,
-  },
-  {
-    id: '302ai',
-    name: '302.AI',
-    apiKey: '',
-    baseUrl: 'https://api.302.ai/cc',
-    enabled: true,
-    models: ['claude-sonnet-4-5-20250929'],
-    icon: '3',
-    apiKeyUrl: 'https://302.ai/?utm_source=workany_desktop',
-    canDelete: true,
-  },
-  {
-    id: 'ollama',
-    name: 'Ollama',
-    apiKey: '',
-    baseUrl: 'http://localhost:11434',
-    enabled: true,
-    models: ['glm-4.7-flash'],
-    icon: 'O',
-    apiKeyUrl: 'https://docs.ollama.com/integrations/claude-code',
-    canDelete: true,
-  },
-  {
-    id: 'siliconflow',
-    name: 'SiliconFlow',
-    apiKey: '',
-    baseUrl: 'https://api.siliconflow.com/',
-    enabled: true,
-    models: ['MiniMaxAI/MiniMax-M2.1', 'zai-org/GLM-4.7'],
-    icon: 'S',
-    apiKeyUrl: 'https://cloud.siliconflow.com/me/account/ak',
-    canDelete: true,
+    models: [
+      'claude-sonnet-4-6',
+      'claude-opus-4-6',
+      'gemini-3-pro-preview',
+      'gpt-5.3-codex-xhigh',
+      'glm-4.7',
+      'kimi-k2.5',
+    ],
+    icon: 'N',
+    apiKeyUrl: 'https://nexusapi.cn',
+    canDelete: false,
   },
 ];
 
@@ -340,44 +280,19 @@ export const providerDefaultModels: Record<string, string[]> = {
 
 // Model suggestions for custom providers (matched by name pattern)
 export const customProviderModels: Record<string, string[]> = {
-  火山: [
-    'doubao-1-5-pro-256k-250115',
-    'doubao-1-5-lite-32k-250115',
-    'deepseek-v3-250324',
-  ],
-  volcengine: [
-    'doubao-1-5-pro-256k-250115',
-    'doubao-1-5-lite-32k-250115',
-    'deepseek-v3-250324',
-  ],
-  deepseek: ['deepseek-chat', 'deepseek-coder', 'deepseek-reasoner'],
-  moonshot: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
-  zhipu: ['glm-4-plus', 'glm-4-flash', 'glm-4-long'],
-  qwen: ['qwen-max', 'qwen-plus', 'qwen-turbo'],
-  siliconflow: [
-    'deepseek-ai/DeepSeek-V3',
-    'deepseek-ai/DeepSeek-V3.1-Terminus',
-    'deepseek-ai/DeepSeek-V3.2',
-    'deepseek-ai/DeepSeek-R1',
-    'Pro/deepseek-ai/DeepSeek-V3',
-    'Pro/deepseek-ai/DeepSeek-V3.1-Terminus',
-    'Pro/deepseek-ai/DeepSeek-V3.2',
-    'Pro/deepseek-ai/DeepSeek-R1',
-    'Qwen/Qwen3-235B-A22B-Instruct-2507',
-    'Qwen/Qwen3-235B-A22B-Thinking-2507',
-    'Qwen/Qwen3-Coder-480B-A35B-Instruct',
-    'moonshotai/Kimi-K2-Instruct-0905',
-    'moonshotai/Kimi-K2-Thinking',
-    'Pro/moonshotai/Kimi-K2-Instruct-0905',
-    'Pro/moonshotai/Kimi-K2-Thinking',
-    'Pro/MiniMaxAI/MiniMax-M2.1',
-    'Pro/zai-org/GLM-4.7',
+  nexus: [
+    'claude-sonnet-4-6',
+    'claude-opus-4-6',
+    'gemini-3-pro-preview',
+    'gpt-5.3-codex-xhigh',
+    'glm-4.7',
+    'kimi-k2.5',
   ],
 };
 
 // Default settings
 // Note: Path values are placeholders that get resolved at initialization
-// to platform-specific paths (e.g., ~/Library/Application Support/workany on macOS)
+// to platform-specific paths (e.g., ~/Library/Application Support/nexus on macOS)
 export const defaultSettings: Settings = {
   profile: {
     nickname: 'Guest User',
@@ -408,7 +323,7 @@ export const defaultSettings: Settings = {
   language: '', // Empty string triggers system language detection on first run
 };
 
-const DB_NAME = 'sqlite:workany.db';
+const DB_NAME = 'sqlite:nexus.db';
 
 // Check if running in Tauri environment synchronously
 function isTauriSync(): boolean {
@@ -512,7 +427,7 @@ export async function getSettingsAsync(): Promise<Settings> {
 
   // Fallback to localStorage for browser mode
   try {
-    const stored = localStorage.getItem('workany_settings');
+    const stored = localStorage.getItem('nexus_settings');
     if (stored) {
       const loadedSettings = { ...defaultSettings, ...JSON.parse(stored) };
       // Migration: Add missing default providers
@@ -535,7 +450,7 @@ export async function getSettingsAsync(): Promise<Settings> {
       settingsCache = loadedSettings;
       return loadedSettings;
     } else {
-      console.log('[Settings] localStorage has no workany_settings');
+      console.log('[Settings] localStorage has no nexus_settings');
     }
   } catch (error) {
     console.error('[Settings] Failed to load from localStorage:', error);
@@ -558,7 +473,7 @@ export function getSettings(): Settings {
 
   // Try localStorage first for immediate sync access
   try {
-    const stored = localStorage.getItem('workany_settings');
+    const stored = localStorage.getItem('nexus_settings');
     if (stored) {
       const loadedSettings = { ...defaultSettings, ...JSON.parse(stored) };
       // Migration: Add missing default providers
@@ -618,7 +533,7 @@ export async function saveSettingsAsync(settings: Settings): Promise<void> {
 
   // Also save to localStorage as fallback
   try {
-    localStorage.setItem('workany_settings', JSON.stringify(settings));
+    localStorage.setItem('nexus_settings', JSON.stringify(settings));
   } catch (error) {
     console.error('[Settings] Failed to save to localStorage:', error);
   }
@@ -636,7 +551,7 @@ export function saveSettings(settings: Settings): void {
 
   // Save to localStorage immediately for sync access
   try {
-    localStorage.setItem('workany_settings', JSON.stringify(settings));
+    localStorage.setItem('nexus_settings', JSON.stringify(settings));
     console.log('[Settings] Saved to localStorage successfully');
   } catch (error) {
     console.error('[Settings] Failed to save to localStorage:', error);
@@ -896,7 +811,7 @@ export async function saveSettingItem(
 
   // Also save to localStorage
   try {
-    localStorage.setItem(`workany_${key}`, value);
+    localStorage.setItem(`nexus_${key}`, value);
   } catch (error) {
     console.error(`[Settings] Failed to save ${key} to localStorage:`, error);
   }
@@ -924,7 +839,7 @@ export async function getSettingItem(key: string): Promise<string | null> {
 
   // Fallback to localStorage
   try {
-    return localStorage.getItem(`workany_${key}`);
+    return localStorage.getItem(`nexus_${key}`);
   } catch {
     return null;
   }
@@ -959,7 +874,7 @@ export async function clearAllSettings(): Promise<void> {
   try {
     const keys = Object.keys(localStorage);
     for (const key of keys) {
-      if (key.startsWith('workany')) {
+      if (key.startsWith('nexus')) {
         localStorage.removeItem(key);
       }
     }
