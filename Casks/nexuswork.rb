@@ -4,7 +4,7 @@
 cask "nexuswork" do
   arch arm: "aarch64", intel: "cd6a7eb584e960f36b32bcfb731ed76c2926bf31064ab73054a084cf731917db"
 
-  version "0.1.16"
+  version "0.1.17"
   sha256 arm:   "47c91d67da96ba553370ca532ac0f6159e4a6cef9af557b4fa00cefee94295ae",
          intel: "cd6a7eb584e960f36b32bcfb731ed76c2926bf31064ab73054a084cf731917db"
 
