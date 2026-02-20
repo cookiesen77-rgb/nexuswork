@@ -10,16 +10,13 @@ import { Hono } from 'hono';
 
 const proxyRoutes = new Hono();
 
-const proxyTargets = new Map<
-  string,
-  { targetBaseUrl: string; apiKey: string }
->();
+let defaultProxyTarget: { targetBaseUrl: string; apiKey: string } | null = null;
 
 export function setProxyTarget(
   model: string,
   config: { targetBaseUrl: string; apiKey: string }
 ) {
-  proxyTargets.set(model, config);
+  defaultProxyTarget = config;
 }
 
 // ============================================================================
@@ -242,14 +239,14 @@ proxyRoutes.post('/v1/messages', async (c) => {
   const body = (await c.req.json()) as AnthropicRequest;
   const model = body.model;
 
-  const target = proxyTargets.get(model);
+  const target = defaultProxyTarget;
   if (!target) {
     return c.json(
       {
         type: 'error',
         error: {
           type: 'invalid_request_error',
-          message: `No proxy target configured for model: ${model}`,
+          message: 'Proxy target not configured',
         },
       },
       400

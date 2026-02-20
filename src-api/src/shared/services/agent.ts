@@ -63,17 +63,14 @@ export function getAgent(config?: Partial<AgentConfig>): IAgent {
   });
 
   if (config && (config.apiKey || config.baseUrl || config.model)) {
-    // Check if model needs OpenAI format translation
     if (needsOpenAIFormat(config.model) && config.baseUrl && config.apiKey) {
       console.log(`[AgentService] Model ${config.model} requires OpenAI format, routing through proxy`);
 
-      // Register proxy target for this model
       setProxyTarget(config.model!, {
         targetBaseUrl: config.baseUrl,
         apiKey: config.apiKey,
       });
 
-      // Route through local proxy (Claude SDK → proxy → OpenAI format → relay)
       return createAgent({
         provider: 'claude',
         ...config,
